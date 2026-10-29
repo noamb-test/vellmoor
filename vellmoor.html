@@ -458,6 +458,28 @@ body:has(.owWrap) .bar .btn{display:none!important}
 .hgSMb.on span{color:#fff6a8!important}
 .hgSMb .hgX{width:calc(40*var(--q));height:calc(26*var(--q));margin:calc(3*var(--q)) 0;background:linear-gradient(#f2faf4 0 50%,#5eb68c 50%);border:calc(2*var(--q)) solid #28683f;color:#1e583a;text-shadow:none}
 .hgSMb.on .hgX{border-color:#ffe252;background:linear-gradient(#fff 0 50%,#34ce82 50%)}
+
+/* phones: bigger game view */
+@media (pointer:coarse) and (max-width:900px), (pointer:coarse) and (max-height:500px){
+ body:has(.owWrap){padding:6px max(6px,env(safe-area-inset-right,0px)) 12px max(6px,env(safe-area-inset-left,0px))}
+ body:has(.owWrap) #app{gap:6px}
+ body:has(.owWrap) .bar{padding:5px 10px;gap:2px 12px;font-size:13px;border-radius:8px}
+ body:has(.owWrap) .bar .brand{font-size:18px}
+ body:has(.owWrap) .bar .sigils .sigil{width:16px!important;height:16px!important}
+ body:has(.owWrap) .bar .label,body:has(.owWrap) .bar small{font-size:10px}
+ .owWrap .hgMenuBar{display:none!important}
+ .owView{border-width:1px;border-radius:6px}
+ .owPad{max-width:none;margin-top:8px}
+}
+@media (pointer:coarse) and (orientation:landscape) and (max-height:500px){
+ .owMain{position:relative}
+ .owPad{display:flex!important;position:absolute;left:0;right:0;bottom:6px;margin:0;pointer-events:none;align-items:flex-end}
+ .owPad>*{pointer-events:auto;opacity:.85}
+ .owPad .owA{position:absolute;right:6px;bottom:62px}
+ .owPad .owB{position:absolute;right:76px;bottom:4px}
+ .owPad .owX{position:absolute;right:6px;bottom:136px}
+ body:has(.owWrap) .bar{flex-wrap:nowrap;overflow:hidden;white-space:nowrap}
+}
 </style>
 </head><body>
 <title>Vellmoor</title>
@@ -10125,8 +10147,10 @@ function owStart(M){owStop();
   let last=performance.now();const loop=now=>{if(OWK!==K)return;if(!K.cv.isConnected){owStop();return}const dt=Math.min(50,now-last);last=now;owTick(K,dt,now);owDraw(K,now);OW_RAF=requestAnimationFrame(loop)};OW_RAF=requestAnimationFrame(loop)}
 function owStop(){if(OWK){window.removeEventListener('keydown',owKey,true);window.removeEventListener('keyup',owKey,true);window.removeEventListener('resize',owSize)}cancelAnimationFrame(OW_RAF);OWK=null}
 function owSize(){const K=OWK;if(!K)return;const v=$('#owView');if(!v)return;const r=window.devicePixelRatio||1;
-  const avail=Math.min(v.parentElement.clientWidth,1024),k=Math.max(1,Math.floor(avail/256));const n=Math.max(1,Math.round(k*r));
-  K.cv.width=256*n;K.cv.height=192*n;K.cv.style.width=(256*n/r)+'px';K.cv.style.height=(192*n/r)+'px';K.n=n;K.ctx.imageSmoothingEnabled=false}
+  const avail=Math.min(v.parentElement.clientWidth,1024);let k=Math.max(1,Math.floor(avail/256));if(OW_PHONE()){const land=innerWidth>innerHeight,pad=document.querySelector('.owPad'),top=v.getBoundingClientRect().top+scrollY,ph=land||!pad?0:pad.offsetHeight+8,availH=innerHeight-top-ph-8;k=Math.max(1,Math.min(avail/256,availH/192))}const n=Math.max(1,OW_PHONE()?Math.ceil(k*r):Math.round(k*r));
+  K.cv.width=256*n;K.cv.height=192*n;K.cv.style.width=(OW_PHONE()?256*k:256*n/r)+'px';K.cv.style.height=(OW_PHONE()?192*k:192*n/r)+'px';K.n=n;K.ctx.imageSmoothingEnabled=false}
+const OW_PHONE=()=>matchMedia('(pointer:coarse) and (max-width:900px), (pointer:coarse) and (max-height:500px)').matches;
+window.addEventListener('orientationchange',()=>setTimeout(()=>{if(typeof owSize==='function')owSize()},300));
 const owKeyDir={ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right',w:'up',s:'down',a:'left',d:'right',W:'up',S:'down',A:'left',D:'right'};
 function owKey(e){const K=OWK;if(!K||(typeof PTU!=='undefined'&&PTU)||(typeof HGD!=='undefined'&&HGD)){if(K)K.held=[];return}if(document.querySelector('.scrim')||!document.getElementById('owC'))return;
   if(e.target&&/INPUT|TEXTAREA|SELECT/.test(e.target.tagName))return;
