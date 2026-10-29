@@ -1,0 +1,45 @@
+Vellmor player parts - what each number is
+
+Images are 32x32. Hat, hair, shirt and pants are light grey so the color picker tints them.
+Each part also has a _back version. eyes.png has the front only.
+Bodies are bald, so with no hat or hair you'll see a plain round head.
+
+hat/
+  1.png  Lucas (Platinum)
+  2.png  Lucas (Diamond & Pearl)
+  3.png  Dawn (Platinum)
+  4.png  Dawn (Diamond & Pearl)
+
+hair/
+  1.png  Spiky
+  2.png  Short & Neat
+  3.png  Swept Back
+  4.png  Messy
+  5.png  Tousled
+  6.png  Wavy
+  7.png  Bowl Cut
+  8.png  Mushroom
+  9.png  Bob
+  10.png  Fluffy
+  11.png  Top Knot
+  12.png  High Ponytail
+  13.png  Pigtails
+  14.png  Twin Tails
+  15.png  Headband
+  16.png  Bow
+  17.png  Long
+  18.png  Side Swept Long
+
+shirt/
+  1.png  Lucas (Platinum)
+  2.png  Lucas (Diamond & Pearl)
+  3.png  Dawn (Platinum)
+  4.png  Dawn (Diamond & Pearl)
+
+pants/
+  1.png  Lucas (Platinum)
+  2.png  Lucas (Diamond & Pearl)
+  3.png  Dawn (Platinum)
+  4.png  Dawn (Diamond & Pearl)
+
+Hats, shirts and pants come from the Gen 4 player sprites; hairstyles come from other Gen 4 characters' sprites.

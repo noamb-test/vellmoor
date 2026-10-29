@@ -1,0 +1,12 @@
+Vellmor battle parts
+
+Images are 80x80, from Lucas and Dawn's Platinum battle sprites (front, and back with the _back files).
+Hat, hair, shirt and pants are light grey so the color picker tints them. Eyes are part of each body.
+
+Number 1 is Lucas's (fits body_male), number 2 is Dawn's (fits body_female).
+The two characters stand in different poses, so a male part on the female body (or the reverse) won't line up.
+
+hat/1   Lucas's beret          hat/2   Dawn's beanie
+hair/1  Lucas's hair           hair/2  Dawn's hair
+shirt/1 Lucas's coat and bag   shirt/2 Dawn's coat and scarf
+pants/1 Lucas's pants          pants/2 Dawn's skirt (her back view has none; the coat covers it)
