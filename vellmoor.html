@@ -10155,10 +10155,12 @@ function owStart(M){owStop();
   window.addEventListener('keydown',owKey,true);window.addEventListener('keyup',owKey,true);
   view.onclick=()=>{if(K.msg)owAdvance()};
   document.querySelectorAll('.owDpad [data-d]').forEach(b=>{const d=b.dataset.d;
-    b.onpointerdown=e=>{e.preventDefault();if(owPadMenu()){owPadRepeat(OW_PADKEY[d]);return}if(!K.held.includes(d))K.held.unshift(d)};
+    b.onpointerdown=e=>{e.preventDefault();if(owPadMenu()){owPadRepeat(OW_PADKEY[d]);return}
+      if(K.choose){if(d==='up'||d==='down'){K.choose.i=(K.choose.i+(d==='up'?-1:1)+K.choose.opts.length)%K.choose.opts.length;K.choose.draw()}return}   // Yes/No-style choices
+      if(!K.held.includes(d))K.held.unshift(d)};
     b.onpointerup=b.onpointerleave=b.onpointercancel=()=>{owPadStop();K.held=K.held.filter(x=>x!==d)}});
   $('#owA').onclick=()=>{if(owPadMenu())return owPadSend('z');owAct()};const ob=$('#owB');
-  ob.onpointerdown=e=>{if(owPadMenu()){e.preventDefault();owPadSend('x');return}K.run=true};ob.onpointerup=ob.onpointerleave=()=>{K.run=false};
+  ob.onpointerdown=e=>{if(owPadMenu()){e.preventDefault();owPadSend('x');return}if(K.choose){e.preventDefault();K.choose.i=K.choose.opts.length-1;owChooseKey('ok');return}K.run=true};ob.onpointerup=ob.onpointerleave=()=>{K.run=false};
   let last=performance.now();const loop=now=>{if(OWK!==K)return;if(!K.cv.isConnected){owStop();return}const dt=Math.min(50,now-last);last=now;owTick(K,dt,now);owDraw(K,now);OW_RAF=requestAnimationFrame(loop)};OW_RAF=requestAnimationFrame(loop)}
 /* touch pad → menus: while a menu (start menu, party, bag, shop, PC, options, Pokédex…) is open,
    the pad sends the same keys the keyboard would, so every menu works with it */
@@ -10220,7 +10222,7 @@ function owWild(){const a=AREAS[state.loc],src=a.kind==='town'?a.out:a;const lv=
   battle({kind:'wild',foes:[f]})}
 function owLeave(K,side){const M=K.map,to=M[side].to,from=AREAS[state.loc].n;owStop();state.ow=null;OW_LASTLOC=state.loc;state.loc=to;state.unlocked=Math.max(state.unlocked,to);save();flash=`You leave ${from} and head into ${AREAS[to].n}.`;mapScreen()}
 function owFacing(K){const o=state.ow,[dx,dy]=OW_DIRS[K.dir];return[o.x+dx,o.y+dy]}
-function owAct(){const K=OWK;if(!K)return;if(K.msg)return owAdvance();if(K.moving||K.busy)return;const[x,y]=owFacing(K),M=K.map;
+function owAct(){const K=OWK;if(!K)return;if(K.choose)return owChooseKey('ok');if(K.msg)return owAdvance();if(K.moving||K.busy)return;const[x,y]=owFacing(K),M=K.map;
   let n=owNpcAt(K,x,y);if(!n&&M.counter&&M.counter.includes(x+','+y)){const[dx,dy]=OW_DIRS[K.dir];n=owNpcAt(K,x+dx,y+dy)}if(n){n.dir={up:'down',down:'up',left:'right',right:'left'}[K.dir];const L=n.say();if(!L.length)return;return owSay(L,n.then)}
   if(K.fol&&K.fol.x===x&&K.fol.y===y&&OWF.mon){K.fol.dir={up:'down',down:'up',left:'right',right:'left'}[K.dir];K.heart=performance.now();return owSay([owFolLine(OWF.mon)])}
   const s=(M.signs||{})[x+','+y];if(s){const L=s();if(L)owSay(L);return}
