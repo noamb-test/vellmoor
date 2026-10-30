@@ -480,6 +480,13 @@ body:has(.owWrap) .bar .btn{display:none!important}
  .owPad .owX{position:absolute;right:6px;bottom:136px}
  body:has(.owWrap) .bar{flex-wrap:nowrap;overflow:hidden;white-space:nowrap}
 }
+
+/* white-out screen */
+.faintScr{position:fixed;inset:0;z-index:10000;background:#000;display:flex;align-items:center;justify-content:center;padding:24px;opacity:0;transition:opacity .6s;cursor:pointer;user-select:none;-webkit-user-select:none}
+.faintScr.in{opacity:1}
+.faintBox{display:flex;flex-direction:column;align-items:center;gap:18px;max-width:640px;animation:fadein .4s}
+.faintBox p{margin:0;color:#f8f8f8;text-align:center;font:clamp(22px,5vw,40px)/1.5 'Vellmoor DS','Vellmoor FRLG',monospace}
+.faintNext{color:#e04030;font-size:14px;animation:owBlink 1s steps(2) infinite}
 </style>
 </head><body>
 <title>Vellmoor</title>
@@ -11148,6 +11155,36 @@ function hgOptions(){let i=0;const opts=()=>[[`PACE: ${state.fast?'FAST':'NORMAL
     d.innerHTML='<button class="hgMenuBtn" id="hgMenuBtn">MENU <small>X</small></button><span class="hgHelp">Arrows/WASD walk · Shift run · Z talk · X menu · Esc map</span>';mn0.appendChild(d);
     d.querySelector('button').onclick=()=>{if(OWK&&!OWK.msg&&!PTU)hgStartMenu()}}
   const fl=document.querySelector('.owSide .flash'),mn=document.querySelector('.owMain');if(fl&&mn)mn.prepend(fl);return r}}
+
+/* ============ WHITE-OUT: the whole party fainted ============
+   After a lost battle (not Nuzlocke): fade to black, a few lines of text, then wake inside the
+   town's Pokémon Center in front of the counter while the nurse speaks. Money loss and healing
+   still happen in loseBattle(). */
+function owCenterFor(town){for(const k in OW_MAPS){const M=OW_MAPS[k];if(M&&M.area===town&&M.title==='Pokémon Center')return k}return null}
+function faintScreen(lines,then){
+  const el=document.createElement('div');el.className='faintScr';document.body.appendChild(el);let i=0,done=false;
+  const next=()=>{if(done)return;if(i>=lines.length){done=true;window.removeEventListener('keydown',key,true);then();el.classList.remove('in');setTimeout(()=>el.remove(),700);return}
+    el.innerHTML=`<div class="faintBox"><p>${lines[i++]}</p><span class="faintNext">▼</span></div>`};
+  const key=e=>{if(['Enter',' ','z','Z','a','A','x','X','b','B','Escape'].includes(e.key)){e.preventDefault();e.stopPropagation();next()}else{e.stopPropagation()}};
+  window.addEventListener('keydown',key,true);el.onclick=e=>{e.stopPropagation();next()};
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{el.classList.add('in');setTimeout(next,450)}))}
+let WO_NURSE=false;
+const _woOw=owScreen;
+owScreen=function(){const r=_woOw.apply(this,arguments);const M=state&&state.ow&&OW_MAPS[state.ow.map];
+  if(WO_NURSE&&M&&M.title==='Pokémon Center'){WO_NURSE=false;setTimeout(()=>{if(OWK&&!OWK.msg)owSay(['Your Pokémon have been restored to full health.','Please be careful out there. We’re always here if you need us!'])},500)}return r};
+const _wLose=loseBattle;
+loseBattle=async function(){
+  if(typeof nuzOn==='function'&&nuzOn())return _wLose();
+  const g0=state.gold;await _wLose();if(!B)return;
+  const lost=Math.max(0,g0-state.gold),town=state.loc,name=(P().name||'You');let gone=false;
+  B.cont=()=>{if(gone)return;gone=true;clearSt();questTick();if(typeof owStop==='function')owStop();
+    const ck=owCenterFor(town);
+    faintScreen([`${name} has no Pokémon left that can fight!`,
+      lost>0?`${name} dropped $${lost} in the panic…`:`${name} panicked…`,
+      `${name} rushed the fainted Pokémon back to the ${AREAS[town].n} Pokémon Center…`],()=>{
+      if(ck&&OW_AREA[town]){OW_MENU=false;OW_LASTLOC=town;state.ow={map:ck,x:8,y:13,dir:'up'};WO_NURSE=true;save();mapScreen()}
+      else{flash=`You wake at the ${AREAS[town].n} Pokémon Center, party healed, purse lighter by ${lost} gold.`;mapScreen()}})};
+  setTimeout(()=>{if(B&&B.cont&&!gone)B.cont()},1800)};
 buildPixelCache().then(npcInit,npcInit).then(titleScreen,titleScreen);
 </script>
 
