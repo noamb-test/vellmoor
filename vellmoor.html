@@ -10007,6 +10007,13 @@ function owpHead(p){if(p.hat>0&&OWP_SP[p.hat-1]){const c=OWP_SP[p.hat-1],hat=owp
   const h=OWP_HS[Math.max(0,Math.min(OWP_HS.length-1,(p.hair||1)-1))];return{pal:h.pal,px:h.px,hc:new Set(h.hair),sk:new Set(h.skin),main:h.main,hatSet:new Set(),hairSet:new Set(h.hair)}}
 function owpTop(P,f){for(let y=0;y<32;y++)for(let x=0;x<32;x++)if(P[(f*32+y)*32+x])return y;return 0}
 const OWP_CUT=[22,22,21,21];
+/* where the body sheet's own head sits in a running frame, relative to the matching walking frame:
+   the run frames lean forward, so the swapped-in head has to move sideways as well as up/down */
+function owpRunOff(P,f,cut){const A=(f-16)*1024,Bo=f*1024;let best=[0,owpTop(P,f)-owpTop(P,f-16)],bs=-1;
+  for(let dy=-2;dy<=6;dy++)for(let dx=-5;dx<=5;dx++){let sc=0;
+    for(let y=0;y<=cut;y++){const ty=y+dy;if(ty<0||ty>31)continue;for(let x=0;x<32;x++){const v=P[A+y*32+x];if(!v)continue;const tx=x+dx;if(tx<0||tx>31)continue;if(P[Bo+ty*32+tx]===v)sc++}}
+    if(sc>bs||(sc===bs&&Math.abs(dx)+Math.abs(dy)<Math.abs(best[0])+Math.abs(best[1]))){bs=sc;best=[dx,dy]}}
+  return best}
 function owpSheet(p){const key=JSON.stringify([p.hat,p.hair,p.shirt,p.hatC,p.hairC,p.shirtC,p.pantsC]);if(OWP.cache[key])return OWP.cache[key];
   const c=OWP_SP[Math.max(0,Math.min(3,(p.shirt||1)-1))],H=owpHead(p),P=c.px;
   const ph=new Set(owpIdx(c,'Hair')),skinIdx=owpIdx(c,'Skin Tone').slice().sort((a,b)=>owpLum(c.pal[a])-owpLum(c.pal[b])),outline=c.pal.findIndex((h,i)=>i>0&&h==='#000000');
@@ -10014,9 +10021,9 @@ function owpSheet(p){const key=JSON.stringify([p.hat,p.hair,p.shirt,p.hatC,p.hai
     if(H.sk.has(v)&&skinIdx.length){const L=owpLum(h);let best=skinIdx[0];skinIdx.forEach(i=>{if(Math.abs(owpLum(c.pal[i])-L)<Math.abs(owpLum(c.pal[best])-L))best=i});return best}
     if(owpLum(h)<60&&outline>0)return outline;return 64+v});
   const out=new Uint8Array(32*1024);
-  for(let f=0;f<32;f++){const d=((f%16)/4)|0,nf=f%16,cut=OWP_CUT[d],z=cut-2,dy=f>=16?owpTop(P,f)-owpTop(P,f-16):0,o=f*1024;
+  for(let f=0;f<32;f++){const d=((f%16)/4)|0,nf=f%16,cut=OWP_CUT[d],z=cut-2,[dx,dy]=f>=16?owpRunOff(P,f,cut):[0,0],o=f*1024;
     for(let y=0;y<32;y++)for(let x=0;x<32;x++){const v=P[o+y*32+x];if(v&&y>cut+dy&&!ph.has(v))out[o+y*32+x]=v}
-    for(let y=0;y<32;y++){const sy=y-dy;if(sy<0||sy>31)continue;for(let x=0;x<32;x++){const v=H.px[nf*1024+sy*32+x],pv=P[o+y*32+x],k=o+y*32+x;
+    for(let y=0;y<32;y++){const sy=y-dy;if(sy<0||sy>31)continue;for(let x=0;x<32;x++){const sx=x-dx,v=sx>=0&&sx<32?H.px[nf*1024+sy*32+sx]:0,pv=P[o+y*32+x],k=o+y*32+x;
       if(sy<z){if(v)out[k]=map[v]}
       else if(sy<=cut){if(v&&H.hc.has(v))out[k]=map[v];else if(pv&&!ph.has(pv))out[k]=pv;else if(v&&(H.sk.has(v)||owpLum(H.pal[v])<60))out[k]=map[v];else out[k]=0}
       else if(v&&H.hc.has(v)&&!out[k])out[k]=map[v]}}}
