@@ -11056,8 +11056,12 @@ function ptSummary(m){const prev=PTU.keys;const el=document.createElement('div')
      <div class="psRow"><span>Item</span><b>${m.item?heldN(m):'None'}</b></div></div>
    <div class="ptWin psR"><div class="psStats">${STATK.map(k=>`<span>${k==='hp'?'HP':STATN[k]}</span><b>${k==='hp'?`${Math.max(0,m.hp)}/${s.maxhp}`:s[k]}</b>`).join('')}</div>
      <div class="psMoves">${m.moves.map(id=>`<div><span>${MV[id].n}</span><b>${m.pp[id]}/${MV[id].pp}</b></div>`).join('')}</div></div>
-   <div class="ppMsg">Press any key to go back.</div>`;
-  PTU.el.appendChild(el);const done=()=>{el.remove();PTU.keys=prev};el.onclick=done;PTU.keys=k=>{if(k==='a'||k==='b')done()}}
+   <div class="ppMsg">${state.party.indexOf(m)>=0&&state.party.length>1?`${state.party.indexOf(m)+1} / ${state.party.length} · ▲▼ next Pokémon · `:''}A or B to go back.</div>`;
+  PTU.el.appendChild(el);const done=()=>{el.remove();PTU.keys=prev};el.onclick=done;
+  PTU.keys=k=>{if(k==='a'||k==='b')return done();
+    // up/down: page through the party without leaving the summary
+    if((k==='up'||k==='down')&&state.party.length>1){const i=state.party.indexOf(m);if(i<0)return;const j=(i+(k==='up'?-1:1)+state.party.length)%state.party.length;
+      done();if(typeof PP!=='undefined'&&PP){PP.sel=j;if(typeof ppDraw==='function')ppDraw()}ptSummary(state.party[j])}}}
 /* hook-ups: field party button and the battle's POKéMON menu */
 const openPartyModal=openParty;
 openParty=function(msg){if(msg===undefined&&PARTY_SWAP===null&&state.party.length&&!document.querySelector('.scrim'))return ptParty({mode:'field'});return openPartyModal(msg)};
