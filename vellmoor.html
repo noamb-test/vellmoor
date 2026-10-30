@@ -10155,10 +10155,18 @@ function owStart(M){owStop();
   window.addEventListener('keydown',owKey,true);window.addEventListener('keyup',owKey,true);
   view.onclick=()=>{if(K.msg)owAdvance()};
   document.querySelectorAll('.owDpad [data-d]').forEach(b=>{const d=b.dataset.d;
-    b.onpointerdown=e=>{e.preventDefault();if(!K.held.includes(d))K.held.unshift(d)};
-    b.onpointerup=b.onpointerleave=b.onpointercancel=()=>{K.held=K.held.filter(x=>x!==d)}});
-  $('#owA').onclick=()=>owAct();const ob=$('#owB');ob.onpointerdown=()=>{K.run=true};ob.onpointerup=ob.onpointerleave=()=>{K.run=false};
+    b.onpointerdown=e=>{e.preventDefault();if(owPadMenu()){owPadRepeat(OW_PADKEY[d]);return}if(!K.held.includes(d))K.held.unshift(d)};
+    b.onpointerup=b.onpointerleave=b.onpointercancel=()=>{owPadStop();K.held=K.held.filter(x=>x!==d)}});
+  $('#owA').onclick=()=>{if(owPadMenu())return owPadSend('z');owAct()};const ob=$('#owB');
+  ob.onpointerdown=e=>{if(owPadMenu()){e.preventDefault();owPadSend('x');return}K.run=true};ob.onpointerup=ob.onpointerleave=()=>{K.run=false};
   let last=performance.now();const loop=now=>{if(OWK!==K)return;if(!K.cv.isConnected){owStop();return}const dt=Math.min(50,now-last);last=now;owTick(K,dt,now);owDraw(K,now);OW_RAF=requestAnimationFrame(loop)};OW_RAF=requestAnimationFrame(loop)}
+/* touch pad → menus: while a menu (start menu, party, bag, shop, PC, options, Pokédex…) is open,
+   the pad sends the same keys the keyboard would, so every menu works with it */
+const OW_PADKEY={up:'ArrowUp',down:'ArrowDown',left:'ArrowLeft',right:'ArrowRight'};
+const owPadMenu=()=>!!((typeof PTU!=='undefined'&&PTU)||(typeof HGD!=='undefined'&&HGD));
+function owPadSend(key){const o={key,bubbles:true,cancelable:true};window.dispatchEvent(new KeyboardEvent('keydown',o));window.dispatchEvent(new KeyboardEvent('keyup',o))}
+let OW_PADT=null;function owPadStop(){clearTimeout(OW_PADT);OW_PADT=null}
+function owPadRepeat(key){owPadStop();owPadSend(key);const go=()=>{if(!owPadMenu())return owPadStop();owPadSend(key);OW_PADT=setTimeout(go,110)};OW_PADT=setTimeout(go,380)}
 function owStop(){if(OWK){window.removeEventListener('keydown',owKey,true);window.removeEventListener('keyup',owKey,true);window.removeEventListener('resize',owSize)}cancelAnimationFrame(OW_RAF);OWK=null}
 function owSize(){const K=OWK;if(!K)return;const v=$('#owView');if(!v)return;const r=window.devicePixelRatio||1;
   const avail=Math.min(v.parentElement.clientWidth,1024);let k=Math.max(1,Math.floor(avail/256));if(OW_PHONE()){const land=innerWidth>innerHeight,pad=document.querySelector('.owPad'),top=v.getBoundingClientRect().top+scrollY,ph=land||!pad?0:pad.offsetHeight+8,availH=innerHeight-top-ph-8;k=Math.max(1,Math.min(avail/256,availH/192))}const n=Math.max(1,OW_PHONE()?Math.ceil(k*r):Math.round(k*r));
@@ -11157,7 +11165,7 @@ function hgOptions(){let i=0;const opts=()=>[[`PACE: ${state.fast?'FAST':'NORMAL
 /* the MENU button on the touch pad */
 {const _hgOwScreen=owScreen;owScreen=function(){const r=_hgOwScreen.apply(this,arguments);const pad=document.querySelector('.owPad');
   if(pad&&!pad.querySelector('.owX')){const b=document.createElement('button');b.className='owX';b.id='owX';b.textContent='MENU';b.setAttribute('aria-label','Menu');
-    b.onclick=()=>{if(OWK&&!OWK.msg&&!PTU)hgStartMenu()};pad.appendChild(b)}
+    b.onclick=()=>{if(owPadMenu())return owPadSend('x');if(OWK&&!OWK.msg)hgStartMenu()};pad.appendChild(b)}
   const mn0=document.querySelector('.owMain');if(mn0&&!mn0.querySelector('.hgMenuBtn')){const d=document.createElement('div');d.className='hgMenuBar';
     d.innerHTML='<button class="hgMenuBtn" id="hgMenuBtn">MENU <small>X</small></button><span class="hgHelp">Arrows/WASD walk · Shift run · Z talk · X menu · Esc map</span>';mn0.appendChild(d);
     d.querySelector('button').onclick=()=>{if(OWK&&!OWK.msg&&!PTU)hgStartMenu()}}
