@@ -10035,7 +10035,7 @@ function owpSheet(p){const key=JSON.stringify([p.hat,p.hair,p.shirt,p.hatC,p.hai
 /* ============ OVERWORLD (walkable towns) ============
    Hearthvale is a walkable FireRed-style map. Arrow keys / WASD walk, hold Shift (or X) to run,
    Z / Enter / Space talks and opens doors, Esc opens the region map. On a phone, use the on-screen pad.
-   Your lead Pokémon walks behind you (HeartGold/SoulSilver follower sprites; newer Pokémon use a small battle sprite).
+   Your lead Pokémon walks behind you (HeartGold/SoulSilver follower sprites for #1–493; #494–1025 from the pokeemerald-expansion follower set).
    Files: sprites/overworld/maps/<map>_lower.png and _upper.png (drawn under / over people),
           sprites/overworld/player_m.png, player_f.png, sprites/overworld/npc/<name>.png,
           sprites/overworld/pokemon/normal/<dex>.png and shiny/<dex>.png.
@@ -10059,7 +10059,7 @@ Object.assign(OW_MAPS.hearthvale,{area:0,img:'hearthvale',start:[5,15,'down'],no
     mart:()=>owWarp('hv_mart',7,7,'up'),
     lab:()=>owWarp('hv_lab',6,12,'up'),
   }});
-const OW_FOL=new Set([[1,82],[84,493]].flatMap(([a,b])=>Array.from({length:b-a+1},(_,i)=>a+i)));
+const OW_FOL=new Set([[1,1025]].flatMap(([a,b])=>Array.from({length:b-a+1},(_,i)=>a+i)));
 
 /* ---- Hearthvale interiors: custom rooms built from FireRed furniture. exits: stand on the mat and walk down. warps: step onto the tile. ---- */
 const OW_INT={"hv_home":{"w":13,"h":10,"img":"hv_home","coll":["1111111111111","1111111111111","1000000000011","1000000000000","1000000000000","1000110000000","1000110000000","1000000001001","1000000000000","1111111111111"],"grass":[]},"hv_home2":{"w":12,"h":9,"img":"hv_home2","coll":["111111111111","111111111111","111000000000","101000000000","100000000000","100100000000","100100000000","100000000100","100000000000"],"grass":[]},"hv_archive":{"w":13,"h":12,"img":"hv_archive","coll":["1111111111111","1111111111111","0000000000000","0000000000000","0000000000000","0111111101111","0000000000000","0000000000000","0111100001111","0000000000000","0000000000000","1111111111111"],"grass":[]},"hv_lab":{"w":13,"h":14,"img":"hv_lab","coll":["1111111111111","1111111111111","0000000000000","0000000000000","0000000000000","0001110000110","0000000000110","0000000000000","0000000000000","0111100011110","0000000000000","0000000000001","1000000000001","1111111111111"],"grass":[]},"hv_mart":{"w":11,"h":9,"img":"hv_mart","coll":["11111111111","11111111111","11010000000","00010110111","11110110111","00000110111","01100000000","00000000001","11111111111"],"grass":[]},"hv_center":{"w":15,"h":10,"img":"hv_center","coll":["101111111111111","111111111111111","000011100110000","000011111110000","100000000000000","100000000000000","111000000001100","111000000001100","100000000000001","111111111111111"],"grass":[]}};
