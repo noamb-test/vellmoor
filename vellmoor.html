@@ -7800,7 +7800,7 @@ function playerSprite(p,size=64,view='front',dir){const id='ps'+(++PSPR_ID);PSPR
 function paintPlayers(){document.querySelectorAll('canvas.pspr[data-ps]').forEach(async cv=>{const r=PSPR[cv.dataset.ps];if(!r)return;delete PSPR[cv.dataset.ps];
   const L=await playerLayers(r.p,r.view,r.dir),x=cv.getContext('2d');
   if(!L){cv.width=32;cv.height=32;x.strokeStyle='#8a8a9a';x.setLineDash([3,2]);x.strokeRect(3.5,3.5,25,25);x.fillStyle='#8a8a9a';x.font='bold 16px monospace';x.textAlign='center';x.fillText('?',16,22);return}
-  cv.width=L[0][0].naturalWidth;cv.height=L[0][0].naturalHeight;x.imageSmoothingEnabled=false;for(const[img,c]of L)x.drawImage(tintImg(img,c),0,0)})}
+  cv.width=L[0][0].naturalWidth;cv.height=L[0][0].naturalHeight;x.imageSmoothingEnabled=false;L.forEach(([img,c],i)=>x.drawImage(i===0&&typeof vmSkinImg==='function'?vmSkinImg(img,r.p.skinC):tintImg(img,c),0,0))})}
 async function probeOpts(g,part){const k=part;if(probeOpts.c[k])return probeOpts.c[k];const ids=Array.from({length:PMAX},(_,i)=>i+1);
   const r=await Promise.all(ids.map(i=>pimg(`${PDIR}${part}/${i}.png`)));return probeOpts.c[k]=ids.filter((_,j)=>r[j])}
 probeOpts.c={};
@@ -10014,7 +10014,7 @@ function owpRunOff(P,f,cut){const A=(f-16)*1024,Bo=f*1024;let best=[0,owpTop(P,f
     for(let y=0;y<=cut;y++){const ty=y+dy;if(ty<0||ty>31)continue;for(let x=0;x<32;x++){const v=P[A+y*32+x];if(!v)continue;const tx=x+dx;if(tx<0||tx>31)continue;if(P[Bo+ty*32+tx]===v)sc++}}
     if(sc>bs||(sc===bs&&Math.abs(dx)+Math.abs(dy)<Math.abs(best[0])+Math.abs(best[1]))){bs=sc;best=[dx,dy]}}
   return best}
-function owpSheet(p){const key=JSON.stringify([p.hat,p.hair,p.shirt,p.hatC,p.hairC,p.shirtC,p.pantsC]);if(OWP.cache[key])return OWP.cache[key];
+function owpSheet(p){const key=JSON.stringify([p.hat,p.hair,p.shirt,p.hatC,p.hairC,p.shirtC,p.pantsC,p.skinC||'']);if(OWP.cache[key])return OWP.cache[key];
   const c=OWP_SP[Math.max(0,Math.min(3,(p.shirt||1)-1))],H=owpHead(p),P=c.px;
   const ph=new Set(owpIdx(c,'Hair')),skinIdx=owpIdx(c,'Skin Tone').slice().sort((a,b)=>owpLum(c.pal[a])-owpLum(c.pal[b])),outline=c.pal.findIndex((h,i)=>i>0&&h==='#000000');
   const map=H.pal.map((h,v)=>{if(!v)return 0;if(H.force&&H.hc.has(v))return 64+v;const ex=c.pal.indexOf(h,1);if(ex>0&&ex<16&&!H.hc.has(v))return ex;
@@ -10036,7 +10036,7 @@ function owpSheet(p){const key=JSON.stringify([p.hat,p.hair,p.shirt,p.hatC,p.hai
     for(let y=0;y<32;y++)for(let x=0;x<32;x++){const v=out[o+y*32+x];if(!v)continue;let q,zone=null;
       if(v>=64){const h=v-64;q=hpal[h];if(H.hatSet.has(h))zone='hat';else if(H.hairSet.has(h))zone='hair'}
       else{q=hex[v];const L=q[0]+q[1]+q[2];if(!skin.has(v)&&L>=60&&y>OWP_CUT[((f%16)/4)|0]-1)zone=y>=bot-2?'pants':'shirt'}
-      if(zone)q=mul(q,tc[zone]);const j=(o+y*32+x)*4;img.data[j]=q[0];img.data[j+1]=q[1];img.data[j+2]=q[2];img.data[j+3]=255}}
+      if(zone)q=mul(q,tc[zone]);else if(typeof vmSkinOn==='function'&&vmSkinOn(p.skinC))q=vmSkinPx(q,p.skinC)||q;const j=(o+y*32+x)*4;img.data[j]=q[0];img.data[j+1]=q[1];img.data[j+2]=q[2];img.data[j+3]=255}}
   ctx.putImageData(img,0,0);cv.naturalWidth=32;cv.complete=true;return OWP.cache[key]=cv}
 
 /* ============ OVERWORLD (walkable towns) ============
@@ -11285,6 +11285,164 @@ for(const M of Object.values(OW_MAPS))for(const n of (M.npcs||[])){
     n.spotLine=()=>{const c=agentFor(state.loc);return[`${c.n}: ${c.line}`]};
     n.isBeat=()=>{const si=(state.loc-1)/2;return!(state.sigils[si]&&!state.choir[si])};
     n.fight=()=>{owStop();choirBattle()};n.then=()=>{owStop();choirBattle()}}}
+/* ============ CHARACTER CREATOR (PokeMMO style) ============
+   Big walking preview you can turn, category tabs, a full color picker, skin tone.
+   Opens from new game, the wardrobe, your clothes, and MENU > OPTIONS > CHANGE LOOK. */
+const VM_SKIN_BASE=[[255,214,189],[222,165,123],[123,66,66],[172,115,123]];
+const VM_SKINS=['#ffffff','#ffe3cf','#f6caa6','#e3ad84','#c98e5e','#a86f42','#8a5532','#6a3e24','#4b2b19'];
+function vmSkinOn(c){return!!c&&/^#[0-9a-f]{6}$/i.test(c)&&!/^#f{6}$/i.test(c)}
+const VM_SKP={};
+/* move a skin pixel to the chosen tone, keeping the sprite's own light and shade */
+function vmSkinPx(q,c){let k=-1;for(let i=0;i<VM_SKIN_BASE.length;i++){const b=VM_SKIN_BASE[i];if(Math.abs(b[0]-q[0])+Math.abs(b[1]-q[1])+Math.abs(b[2]-q[2])<=9){k=i;break}}
+  if(k<0)return null;const key=c+'|'+q.join(',');if(VM_SKP[key])return VM_SKP[key];
+  const o=owpHsl(q),b=owpHsl(VM_SKIN_BASE[0]),t=owpHsl(owpHex(c));
+  const l=owpCl(o[2]*(t[2]/b[2])),s=owpCl(t[1]+(o[1]-b[1])*.6),h=t[0]+(o[0]-b[0]);
+  return VM_SKP[key]=owpRgb([h,s,l]).map(v=>Math.round(Math.max(0,Math.min(255,v))))}
+function vmSkinImg(img,c){if(!vmSkinOn(c))return img;const cv=document.createElement('canvas');cv.width=img.naturalWidth||img.width;cv.height=img.naturalHeight||img.height;
+  const x=cv.getContext('2d');x.drawImage(img,0,0);const d=x.getImageData(0,0,cv.width,cv.height),q=d.data;
+  for(let i=0;i<q.length;i+=4){if(!q[i+3])continue;const r=vmSkinPx([q[i],q[i+1],q[i+2]],c);if(r){q[i]=r[0];q[i+1]=r[1];q[i+2]=r[2]}}x.putImageData(d,0,0);return cv}
+/* color helpers for the picker */
+function vmHsv(hex){const[r,g,b]=owpHex(hex).map(v=>v/255),mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn;let h=0;
+  if(d)h=mx===r?((g-b)/d+6)%6:mx===g?(b-r)/d+2:(r-g)/d+4;return[h*60,mx?d/mx:0,mx]}
+function vmHex([h,s,v]){const f=n=>{const k=(n+h/60)%6;return v-v*s*Math.max(0,Math.min(k,4-k,1))};return'#'+[f(5),f(3),f(1)].map(x=>Math.round(x*255).toString(16).padStart(2,'0')).join('')}
+const VM_TABS=[
+  {id:'body',l:'Body',col:'skinC',colL:'Skin tone'},
+  {id:'hair',l:'Hair',part:'hair',col:'hairC',colL:'Hair color'},
+  {id:'hat',l:'Hat',part:'hat',col:'hatC',colL:'Hat color'},
+  {id:'eyes',l:'Eyes',col:'eyesC',colL:'Eye color'},
+  {id:'top',l:'Top',part:'shirt',col:'shirtC',colL:'Top color'},
+  {id:'bottom',l:'Bottom',part:'pants',col:'pantsC',colL:'Bottom color'}];
+const VM_HAT_N=['Red cap','Red beanie','White cap','White beanie'];
+const VM_TOP_N=['Jacket & scarf','Jacket & bag','Coat & scarf','Dress & bag'];
+const VM_BOT_N=['Trousers','Shorts','Skirt','Long skirt'];
+let VMC_TAB=0;
+function creatorScreen(edit){
+  const p=Object.assign({},normPlayer(P()));if(!p.skinC)p.skinC='#ffffff';if(!(p.hair>0))p.hair=1;
+  const orig=JSON.stringify(p);let dir=1,mode=1,raf=0,alive=true,thumbT=0;const DIRS=['up','down','left','right'],TURN=[1,2,0,3];
+  const back=()=>{alive=false;cancelAnimationFrame(raf);mapScreen()};
+  app().innerHTML=`<div class="panel pmc">
+    <div class="pmcStage">
+      <p class="label">${edit?'Change your look':'New trainer'}</p>
+      <div class="pmcPlat" id="pmcPlat" title="Drag to turn"><canvas id="pmcOW" width="32" height="32" aria-label="Your trainer, walking"></canvas></div>
+      <div class="pmcTurn"><button class="btn small" id="pmcL" aria-label="Turn left">⟲</button>
+        <span class="pmcModes"><button class="seg" data-m="0">Stand</button><button class="seg" data-m="1">Walk</button><button class="seg" data-m="2">Run</button></span>
+        <button class="btn small" id="pmcR" aria-label="Turn right">⟳</button></div>
+      <div class="pmcBattle"><div><div id="pmcF"></div><span class="label">Battle</span></div><div><div id="pmcB"></div><span class="label">Back</span></div></div>
+      <label class="label" for="pname">Trainer name</label><input id="pname" maxlength="14" value="${(p.name||'').replace(/"/g,'&quot;')}" autocomplete="off">
+    </div>
+    <div class="pmcSide">
+      <div class="pmcTabs" role="tablist">${VM_TABS.map((t,i)=>`<button role="tab" data-t="${i}">${t.l}</button>`).join('')}</div>
+      <div class="pmcBody" id="pmcBody"></div>
+      <div class="pmcFoot"><button class="btn small" id="rand">Randomize</button><button class="btn small" id="reset">Reset</button><span style="flex:1"></span>${edit?'<button class="btn" id="cancel">Cancel</button>':''}<button class="btn primary" id="go">${edit?'Save look':'Begin the journey'}</button></div>
+    </div></div>`;
+  const ow=$('#pmcOW'),ox=ow.getContext('2d');ox.imageSmoothingEnabled=false;
+  let sheet=null;const resheet=()=>{if(typeof owpSheet!=='function')return;owpInit().then(()=>{try{sheet=owpSheet(p)}catch(e){console.error(e)}})};
+  const loop=now=>{if(!alive||!document.body.contains(ow))return;raf=requestAnimationFrame(loop);if(!sheet)return;
+    const ms=mode===2?110:170,seq=[1,0,3,0],f=mode?seq[Math.floor(now/ms)%4]:0,row=(mode===2?16:0)+OW_ROW[DIRS[dir]]*4+f;
+    ox.clearRect(0,0,32,32);ox.drawImage(sheet,0,row*32,32,32,0,0,32,32)};
+  raf=requestAnimationFrame(loop);
+  const turn=d=>{const i=TURN.indexOf(dir);dir=TURN[(i+d+4)%4]};
+  $('#pmcL').onclick=()=>turn(-1);$('#pmcR').onclick=()=>turn(1);
+  {let sx=null;const pl=$('#pmcPlat');pl.onpointerdown=e=>{sx=e.clientX;pl.setPointerCapture(e.pointerId)};
+    pl.onpointermove=e=>{if(sx===null)return;if(Math.abs(e.clientX-sx)>28){turn(e.clientX>sx?1:-1);sx=e.clientX}};pl.onpointerup=pl.onpointercancel=()=>{sx=null}}
+  const modes=()=>document.querySelectorAll('[data-m]').forEach(b=>b.classList.toggle('on',+b.dataset.m===mode));
+  document.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{mode=+b.dataset.m;modes()});modes();
+  let pend=0;const portraits=()=>{cancelAnimationFrame(pend);pend=requestAnimationFrame(()=>{$('#pmcF').innerHTML=playerSprite(p,120,'front');$('#pmcB').innerHTML=playerSprite(p,120,'back')})};
+  const redraw=()=>{resheet();portraits();clearTimeout(thumbT);thumbT=setTimeout(thumbs,250)};
+  const tabs=()=>document.querySelectorAll('[data-t]').forEach(b=>{const on=+b.dataset.t===VMC_TAB;b.classList.toggle('on',on);b.setAttribute('aria-selected',on)});
+  const names=part=>part==='hair'?OWP_HS.map(h=>h.name):part==='hat'?VM_HAT_N:part==='shirt'?VM_TOP_N:VM_BOT_N;
+  const optsFor=part=>{const n=part==='hair'?OWP_HS.length:4;return(part==='hat'?[0]:[]).concat(Array.from({length:n},(_,i)=>i+1))};
+  /* little overworld pictures of each style */
+  function thumbs(){owpInit().then(()=>document.querySelectorAll('canvas[data-th]').forEach(cv=>{const[part,v]=cv.dataset.th.split(':');const q=Object.assign({},p,{[part]:+v});
+    if(part==='hair')q.hat=0;let sh;try{sh=owpSheet(q)}catch(e){return}const x=cv.getContext('2d');x.imageSmoothingEnabled=false;x.clearRect(0,0,32,32);x.drawImage(sh,0,OW_ROW.down*4*32,32,32,0,0,32,32)}))}
+  function body(){const t=VM_TABS[VMC_TAB],el=$('#pmcBody');let h='';
+    if(t.id==='body')h+=`<h3 class="pmcH">Body</h3><div class="pmcSeg"><button class="seg ${p.gender==='male'?'on':''}" data-g="male">Boy</button><button class="seg ${p.gender==='female'?'on':''}" data-g="female">Girl</button></div>`;
+    if(t.part){const nm=names(t.part);h+=`<h3 class="pmcH">${t.l} style</h3><div class="pmcGrid">${optsFor(t.part).map(v=>`<button class="pmcOpt ${p[t.part]===v?'on':''}" data-o="${v}" title="${v?nm[v-1]||'Style '+v:'None'}">${t.part==='pants'?`<span class="pmcNo">${v}</span>`:v?`<canvas width="32" height="32" data-th="${t.part}:${v}"></canvas>`:'<span class="pmcNo">✕</span>'}<span>${v?nm[v-1]||'Style '+v:'None'}</span></button>`).join('')}</div>`;
+      if(t.part==='hair'&&p.hat>0)h+=`<p class="muted pmcNote">Your hat covers your hair when you walk around. Pick “None” on the Hat tab to show it.</p>`;
+      if(t.part==='pants')h+=`<p class="muted pmcNote">Bottoms show in battle and on your trainer card.</p>`}
+    if(t.id==='eyes')h+=`<p class="muted pmcNote">Eye color shows on your trainer card and battle picture.</p>`;
+    const cur=p[t.col]||'#ffffff',sw=t.id==='body'?VM_SKINS:PCOLORS;
+    h+=`<h3 class="pmcH">${t.colL}</h3><div class="pmcSw">${sw.map(c=>`<button class="pcDot ${c.toLowerCase()===cur.toLowerCase()?'on':''}" data-sw="${c}" style="background:${c}" aria-label="${c==='#ffffff'?'Original':c}">${c==='#ffffff'?'<i>orig</i>':''}</button>`).join('')}</div>
+      <div class="pmcPick"><canvas id="pmcSV" width="200" height="120" aria-label="Pick shade"></canvas><div class="pmcRight">
+        <input type="range" id="pmcHue" min="0" max="359" aria-label="Hue"><div class="pmcCur"><span id="pmcChip"></span><input id="pmcHexIn" maxlength="7" spellcheck="false" aria-label="Hex color"></div>
+        <button class="btn small" id="pmcOrig">Original colors</button></div></div>`;
+    el.innerHTML=h;
+    el.querySelectorAll('[data-g]').forEach(b=>b.onclick=()=>{p.gender=b.dataset.g;p.pron=p.gender==='female'?'she':'he';body();redraw()});
+    el.querySelectorAll('[data-o]').forEach(b=>b.onclick=()=>{p[t.part]=+b.dataset.o;el.querySelectorAll('[data-o]').forEach(x=>x.classList.toggle('on',x===b));redraw()});
+    /* color picker */
+    let hsv=vmHsv(/^#[0-9a-f]{6}$/i.test(cur)?cur:'#ffffff');const sv=$('#pmcSV'),sx=sv.getContext('2d'),hue=$('#pmcHue'),hexIn=$('#pmcHexIn'),chip=$('#pmcChip');
+    const paint=()=>{const W=sv.width,H=sv.height;sx.fillStyle=vmHex([hsv[0],1,1]);sx.fillRect(0,0,W,H);
+      let g=sx.createLinearGradient(0,0,W,0);g.addColorStop(0,'#fff');g.addColorStop(1,'rgba(255,255,255,0)');sx.fillStyle=g;sx.fillRect(0,0,W,H);
+      g=sx.createLinearGradient(0,0,0,H);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(1,'#000');sx.fillStyle=g;sx.fillRect(0,0,W,H);
+      const x=hsv[1]*W,y=(1-hsv[2])*H;sx.lineWidth=2;sx.strokeStyle='#000';sx.beginPath();sx.arc(x,y,6,0,7);sx.stroke();sx.strokeStyle='#fff';sx.beginPath();sx.arc(x,y,4.5,0,7);sx.stroke();
+      hue.value=Math.round(hsv[0]);const c=p[t.col]||'#ffffff';chip.style.background=c;if(document.activeElement!==hexIn)hexIn.value=c;
+      el.querySelectorAll('[data-sw]').forEach(b=>b.classList.toggle('on',b.dataset.sw.toLowerCase()===c.toLowerCase()))};
+    const set=(c,fromHsv)=>{p[t.col]=c;if(!fromHsv)hsv=vmHsv(c);paint();redraw()};
+    const at=e=>{const r=sv.getBoundingClientRect();hsv[1]=owpCl((e.clientX-r.left)/r.width);hsv[2]=owpCl(1-(e.clientY-r.top)/r.height);set(vmHex(hsv),true)};
+    let drag=false;sv.onpointerdown=e=>{drag=true;sv.setPointerCapture(e.pointerId);at(e)};sv.onpointermove=e=>{if(drag)at(e)};sv.onpointerup=sv.onpointercancel=()=>{drag=false};
+    hue.oninput=()=>{hsv[0]=+hue.value;if(hsv[1]<.05)hsv[1]=.6;if(hsv[2]<.05)hsv[2]=.8;set(vmHex(hsv),true)};
+    hexIn.oninput=()=>{let v=hexIn.value.trim();if(!v.startsWith('#'))v='#'+v;if(/^#[0-9a-f]{6}$/i.test(v))set(v.toLowerCase())};
+    el.querySelectorAll('[data-sw]').forEach(b=>b.onclick=()=>set(b.dataset.sw));
+    $('#pmcOrig').onclick=()=>set('#ffffff');
+    paint();thumbs()}
+  document.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{VMC_TAB=+b.dataset.t;tabs();body()});
+  $('#pname').oninput=e=>{p.name=e.target.value};
+  $('#rand').onclick=()=>{p.gender=Math.random()<.5?'male':'female';p.pron=p.gender==='female'?'she':'he';
+    p.hair=1+Math.floor(Math.random()*OWP_HS.length);p.hat=Math.random()<.4?0:1+Math.floor(Math.random()*4);p.shirt=1+Math.floor(Math.random()*4);p.pants=1+Math.floor(Math.random()*4);
+    for(const k of['hatC','hairC','shirtC','pantsC'])p[k]=Math.random()<.2?'#ffffff':vmHex([Math.random()*360,.35+Math.random()*.55,.45+Math.random()*.5]);
+    p.eyesC=Math.random()<.3?'#ffffff':pick(PCOLORS);p.skinC=pick(VM_SKINS);body();redraw()};
+  $('#reset').onclick=()=>{Object.assign(p,JSON.parse(orig));$('#pname').value=p.name;body();redraw()};
+  if($('#cancel'))$('#cancel').onclick=back;
+  $('#go').onclick=()=>{p.name=(p.name||'').trim()||'Traveler';p.v=3;state.player=p;save();
+    if(edit){flash='You catch your reflection in the window. Looking good.';back()}else{alive=false;state.plot=makePlot();save();scene('prologue',quizScreen)}};
+  tabs();body();redraw();
+}
+/* MENU > OPTIONS > CHANGE LOOK */
+{const _hgOpt=hgOptions;hgOptions=function(){let i=0;const opts=()=>[[`PACE: ${state.fast?'FAST':'NORMAL'}`,()=>{state.fast=!state.fast;save()}],['CHANGE LOOK',()=>{ptClose(true);if(typeof owStop==='function')owStop();setTimeout(()=>creatorScreen(true),0);return true}],['SAVE FILES',()=>{ptClose(true);save();titleScreen();return true}],['CLOSE',()=>{ptClose();return true}]];
+  ptOpen(`<div class="hgSM"><img class="ptBg" src="${HGM}bg.png" alt=""><div class="ptWin ptMenuWin hgOpt"></div></div>`,k=>{const o=opts();if(k==='up')i=(i-1+o.length)%o.length;else if(k==='down')i=(i+1)%o.length;else if(k==='b')return ptClose();else if(k==='a'){if(o[i][1]())return}draw()},()=>hgStartMenu());
+  const draw=()=>{const w=PTU&&PTU.el.querySelector('.hgOpt');if(!w)return;w.innerHTML=opts().map((o,j)=>`<button class="${j===i?'on':''}" data-j="${j}">${o[0]}</button>`).join('');
+    w.querySelectorAll('button').forEach(b=>b.onclick=e=>{e.stopPropagation();i=+b.dataset.j;if(!opts()[i][1]())draw()})};draw()}}
+{const st=document.createElement('style');st.textContent=`
+.pmc{display:grid;grid-template-columns:minmax(240px,320px) minmax(0,1fr);gap:20px;max-width:1000px;margin:0 auto}
+.pmcStage{display:flex;flex-direction:column;gap:10px;align-items:stretch}
+.pmcPlat{position:relative;height:250px;border-radius:14px;border:2px solid var(--line);background:radial-gradient(ellipse 40% 9% at 50% 84%,rgba(0,0,0,.35),transparent 70%),linear-gradient(#6fb3e0 0 46%,#78c06a 46% 100%);display:flex;align-items:flex-end;justify-content:center;cursor:grab;touch-action:none;overflow:hidden}
+.pmcPlat canvas{width:224px;height:224px;image-rendering:pixelated;margin-bottom:6px;pointer-events:none}
+.pmcTurn{display:flex;gap:8px;align-items:center;justify-content:space-between}
+.pmcModes,.pmcSeg{display:flex;gap:4px}
+.pmcBattle{display:flex;gap:10px;justify-content:center}.pmcBattle>div{display:flex;flex-direction:column;align-items:center;gap:2px;background:var(--raise);border:1px solid var(--line);border-radius:10px;padding:6px 10px}
+.pmcBattle canvas{image-rendering:pixelated}
+.pmcSide{display:flex;flex-direction:column;gap:12px;min-width:0}
+.pmcTabs{display:flex;gap:4px;overflow-x:auto;border-bottom:2px solid var(--line);scrollbar-width:none}
+.pmcTabs button{font:inherit;font-size:15px;color:var(--muted);background:none;border:0;border-bottom:3px solid transparent;margin-bottom:-2px;padding:8px 14px;cursor:pointer;white-space:nowrap}
+.pmcTabs button.on{color:var(--ink);border-bottom-color:#e8b84a;font-weight:700}
+.pmcBody{display:flex;flex-direction:column;gap:8px;min-height:300px}
+.pmcH{font-size:14px;margin:6px 0 0;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.pmcGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:6px}
+.pmcOpt{font:inherit;font-size:12px;color:var(--ink);background:var(--raise);border:2px solid var(--line);border-radius:10px;padding:4px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;min-height:84px;justify-content:center}
+.pmcOpt.on{border-color:#e8b84a;background:#2c3a26}
+.pmcOpt canvas{width:56px;height:56px;image-rendering:pixelated}
+.pmcNo{font-size:24px;line-height:56px;color:var(--muted)}
+.pmcNote{font-size:13px;margin:0}
+.pmcSw{display:flex;flex-wrap:wrap;gap:6px}
+.pmcSw .pcDot{width:30px;height:30px;border-radius:50%;border:2px solid var(--line);cursor:pointer;position:relative;padding:0}
+.pmcSw .pcDot.on{outline:3px solid #e8b84a;outline-offset:1px}
+.pmcSw .pcDot i{font-style:normal;font-size:9px;color:#333}
+.pmcPick{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap}
+#pmcSV{width:220px;max-width:100%;height:132px;border-radius:8px;border:2px solid var(--line);touch-action:none;cursor:crosshair}
+.pmcRight{display:flex;flex-direction:column;gap:8px;flex:1;min-width:150px}
+#pmcHue{-webkit-appearance:none;appearance:none;width:100%;height:18px;border-radius:9px;background:linear-gradient(90deg,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00);border:2px solid var(--line)}
+#pmcHue::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:#fff;border:2px solid #222}
+#pmcHue::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:#fff;border:2px solid #222}
+.pmcCur{display:flex;gap:8px;align-items:center}#pmcChip{width:34px;height:34px;border-radius:8px;border:2px solid var(--line)}
+#pmcHexIn{font:inherit;font-family:monospace;width:7.5em;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+.pmcFoot{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:auto;padding-top:8px;border-top:1px solid var(--line)}
+@media (max-width:760px){.pmc{grid-template-columns:1fr;gap:12px}.pmcPlat{height:170px}.pmcPlat canvas{width:150px;height:150px}
+  .pmcBattle canvas{height:84px!important}.pmcGrid{grid-template-columns:repeat(auto-fill,minmax(72px,1fr))}.pmcOpt{min-height:72px}.pmcOpt canvas{width:44px;height:44px}
+  .pmcTabs{display:grid;grid-template-columns:repeat(3,1fr);border-bottom:0;gap:4px}.pmcTabs button{border:2px solid var(--line);border-radius:8px;margin:0;padding:7px 4px;background:var(--raise)}
+  .pmcTabs button.on{border-color:#e8b84a;background:#3a3220}.pmcBody{min-height:0}.pmcBattle>div{padding:4px 8px}
+  .pmcFoot .btn.primary{flex:1 1 100%;order:9}}
+.pmc #pname{font:inherit;font-size:18px;background:var(--bg);color:var(--ink);border:2px solid var(--line);border-radius:10px;padding:8px 12px;width:100%;box-sizing:border-box}`;document.head.appendChild(st)}
+
 buildPixelCache().then(npcInit,npcInit).then(titleScreen,titleScreen);
 </script>
 
