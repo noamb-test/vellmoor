@@ -11210,6 +11210,22 @@ const OW_TOPFIX={"a10":"1,8;1,9;2,36;2,37;3,36;3,37;4,2;4,14;4,36;4,37;5,2;5,14;
 (function(){for(const k in OW_TOPFIX){const M=OW_MAPS[k];if(!M||!M.coll)continue;const rows=M.coll.map(r=>r.split(''));
   for(const p of OW_TOPFIX[k].split(';')){const[x,y]=p.split(',').map(Number);if(rows[y]&&rows[y][x]==='0')rows[y][x]='1'}
   M.coll=rows.map(r=>r.join(''))}})();
+
+/* ============ BATTLE: sit your Pokémon's back sprite low, like HeartGold/SoulSilver ============
+   With the HGSS battle backgrounds on, the back sprite's image box sat on the bottom edge, but most back sprites
+   have empty rows under the Pokémon's feet, so it floated. Measure the empty rows once per image and drop the
+   sprite so its feet go HG_ME_HIDE px (in DS pixels) below the bottom edge. */
+const HG_ME_HIDE=10,HG_GAP={};
+function hgBackGap(img){const k=img.currentSrc||img.src;if(k in HG_GAP)return HG_GAP[k];
+  try{const w=img.naturalWidth,h=img.naturalHeight;if(!w||!h)return null;const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');x.drawImage(img,0,0);
+    const d=x.getImageData(0,0,w,h).data;let gap=0;outer:for(let y=h-1;y>=0;y--){for(let i=0;i<w;i++)if(d[(y*w+i)*4+3]>16)break outer;gap++}
+    return HG_GAP[k]=gap/h}catch(e){return HG_GAP[k]=0}}
+function hgMeAlign(){if(document.documentElement.getAttribute('data-hgbg')!=='1')return;
+  document.querySelectorAll('.rb:not(.multi) .meArt').forEach(a=>{const img=a.querySelector('img.px');
+    if(!img){a.style.removeProperty('bottom');return}
+    const go=()=>{const g=hgBackGap(img);if(g===null)return;a.style.setProperty('bottom',`calc(${(-1-g*80-HG_ME_HIDE).toFixed(2)}*var(--p))`,'important')};
+    if(img.complete&&img.naturalWidth)go();else img.addEventListener('load',go,{once:true})})}
+new MutationObserver(()=>{if(document.querySelector('.rb .meArt'))hgMeAlign()}).observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['src','data-hgbg']});
 buildPixelCache().then(npcInit,npcInit).then(titleScreen,titleScreen);
 </script>
 
