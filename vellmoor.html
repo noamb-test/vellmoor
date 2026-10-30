@@ -10111,7 +10111,7 @@ const OW_DIRS={up:[0,-1],down:[0,1],left:[-1,0],right:[1,0]},OW_ROW={up:0,down:1
 let OW_MENU=false,OW_LASTLOC=null,OWK=null,OWF={mon:null},OW_RAF=0;
 const owImg={};function owLoad(src){if(owImg[src])return owImg[src];const i=new Image();i.src=src;owImg[src]=i;return i}
 const owOk=i=>i&&i.complete&&i.naturalWidth>0;
-const owWant=()=>!!(state&&OW_AREA[state.loc]&&!OW_MENU&&state.e4===null&&!state.finale);
+const owWant=()=>!!(state&&OW_AREA[state.loc]&&!OW_MENU&&(state.e4===null||!!(state.ow&&/^spire_c/.test(state.ow.map||'')))&&!state.finale);
 /* ---- screen ---- */
 const _owMapScreen=mapScreen;
 mapScreen=function(){
@@ -10787,15 +10787,16 @@ function owGate(K,x,y){const M=K.map,side=y<0?'north':y>=M.h?'south':x<0?'west':
   if(!side||!M[side]||M[side].to<=state.unlocked)return false;if(owBlocked(K,x,y))return false;K.held=[];owLeaveTo(M[side].to);return true}
 /* trainers: generic spotting (gym trainers use their own battle) */
 function owSight(K){const o=state.ow;
-  for(const n of K.npcs){if(!n.trainer||n.tx!==undefined)continue;if(n.isBeat?n.isBeat():owBeat(n.id))continue;const[dx,dy]=OW_DIRS[n.dir];
+  for(const n of K.npcs){if(!n.trainer||n.tx!==undefined)continue;if(n.isBeat?n.isBeat():owBeat(n.id))continue;
+    for(const d of n.lookAround?['up','down','left','right']:[n.dir]){const[dx,dy]=OW_DIRS[d];   // story NPCs look all around
     for(let k=1;k<=(n.sight||3);k++){const x=n.x+dx*k,y=n.y+dy*k;
-      if(x===o.x&&y===o.y){owSpotted(K,n,k);return true}
-      if(owBlocked(K,x,y)||owNpcAt(K,x,y))break}}
+      if(x===o.x&&y===o.y){n.dir=d;owSpotted(K,n,k);return true}
+      if(owBlocked(K,x,y)||owNpcAt(K,x,y))break}}}
   return false}
 function owSpotted(K,n,k){K.busy=true;K.held=[];n.alert=performance.now();const[dx,dy]=OW_DIRS[n.dir];
   setTimeout(()=>{if(OWK!==K)return;n.path=Array.from({length:k-1},()=>[dx,dy]);n.onArrive=()=>{
     K.dir={up:'down',down:'up',left:'right',right:'left'}[n.dir];state.ow.dir=K.dir;K.busy=false;
-    owSay([`${n.trainer.cls} ${n.trainer.name}: ${n.trainer.intro}`],()=>n.fight?n.fight():owTrainerBattle(n))}},800)}
+    owSay(n.spotLine?n.spotLine():[`${n.trainer.cls} ${n.trainer.name}: ${n.trainer.intro}`],()=>n.fight?n.fight():owTrainerBattle(n))}},800)}
 const _owArriveR=owArrive;
 owArrive=function(K){const M=K.map,o=state.ow,t=M.trig&&M.trig[o.x+','+o.y];if(t!==undefined){K.busy=true;setTimeout(()=>{K.busy=false;owLeaveTo(t)},60);return true}
   if(OW_REGION[M.key]&&M.npcs.some(n=>n.trainer)&&owSight(K))return true;
@@ -11231,6 +11232,53 @@ function hgMeAlign(){if(document.documentElement.getAttribute('data-hgbg')!=='1'
     if(img.complete&&img.naturalWidth)go();else img.addEventListener('load',go,{once:true})})}
 new MutationObserver(()=>{if(document.querySelector('.rb .meArt'))hgMeAlign()}).observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['src','data-hgbg']});
 
+
+/* ============ STORY BATTLES IN THE OVERWORLD ============
+   1) The region map no longer has Challenge/Battle buttons for story fights: you walk up to the people instead.
+   2) The Elite Four are fought in four Spire chambers you walk through (the old between-chamber menu is gone).
+   3) The rival and Ashen Choir agents spot you, walk over and start the battle, like trainers. */
+const OW_E4_SHEET={Sorrel:'hg_lance',Gravik:'hg_bruno',Nyxa:'hg_karen',Solenne:'hg_kimono'};
+const OW_STORY_HINT={gymLeader:'Walk into the gym to challenge the Leader.',gymTrainer:'',rival:'He’s waiting for you in town.',warden:'Find them out in the wilds.',
+  choir:'Find the agent out in the wilds.',e4:'Enter through the Spire doors.',summit:'Enter through the Spire doors.'};
+/* 1) region map: swap story-battle buttons for a note */
+{const _ms=mapScreen;mapScreen=function(){const r=_ms.apply(this,arguments);
+  if(document.querySelector('.mapwrap'))for(const[id,txt]of Object.entries(OW_STORY_HINT)){const b=document.getElementById(id);if(!b)continue;
+    if(!txt){b.remove();continue}const sp=document.createElement('span');sp.className='muted storyHint';sp.style.fontSize='13px';sp.textContent=txt;b.replaceWith(sp)}
+  return r}}
+/* 2) Elite Four chambers */
+function e4Fight(){const i=state.e4;if(i===null||i===undefined)return mapScreen();const e=E4[PL().e4order[i]];if(!alive().length)return;owStop();
+  battle({kind:'trainer',trainer:{who:e.who,n:e.n,title:e.title,line:e.line},foes:giveFoeItems(e.team.map(([id,l])=>makeMon(RZ(id,'t'),l)),['sitrusberry','leftovers','lifeorb','focussash','lumberry']),gold:400+i*150,
+    onWin:()=>{state.e4++;if(state.e4>=4){state.e4=null;state.champion=true;if(choirDone()&&!state.story.ending){state.finale=true;return'__finale'}return'__champion'}return`${e.n} bows. The stair climbs on.`},
+    onLose:()=>{state.e4=null}})}
+{const D=OW_MAPS.a6_saffroncity_dojo;
+  for(let c=1;c<=4;c++){const key='spire_c'+c;
+    OW_MAPS[key]=Object.assign({},D,{key,area:18,title:`Skyreach Spire · Chamber ${c}`,signs:{},warps:{},doors:{},doorAct:{},
+      exits:{'7,14':['a18',15,15,'down']},
+      npcs:[{id:'e4_'+c,x:7,y:4,dir:'down',wander:false,sight:9,
+        get sheet(){const e=E4[PL().e4order[c-1]];return OW_E4_SHEET[e.who]||'ace_trainer_m'},
+        trainer:{cls:'',name:'',intro:''},
+        spotLine:()=>{const e=E4[PL().e4order[c-1]];return[`${e.n}, ${e.title}: ${e.line}`]},
+        isBeat:()=>state.e4!==c-1,
+        fight:()=>e4Fight(),
+        say:()=>{const e=E4[PL().e4order[c-1]];return state.e4===c-1?[`${e.n}, ${e.title}: ${e.line}`]:[`${e.n}: Go on. The stair climbs on.`]},
+        then:()=>{if(state.e4===c-1)e4Fight()}}]})}}
+e4Interlude=function(){B=null;if(hasPending())return processPending(e4Interlude);if(state.e4===null)return mapScreen();
+  const c=state.e4+1,msg=flash;flash='';state.loc=18;OW_LASTLOC=18;OW_MENU=false;state.ow={map:'spire_c'+c,x:7,y:13,dir:'up'};save();mapScreen();
+  setTimeout(()=>{if(OWK&&!OWK.msg)owSay([msg?msg.replace(/<[^>]+>/g,''):'',`Chamber ${c} of 4. There is no Pokémon Center here. Use the menu for items and your party.`].filter(Boolean))},450)};
+{const _os=owScreen;owScreen=function(){if(state&&state.e4!==null&&state.ow&&!/^spire_c/.test(state.ow.map||'')){state.e4=null;save()}return _os.apply(this,arguments)}}
+/* 3) rival and Choir agents spot you */
+for(const M of Object.values(OW_MAPS))for(const n of (M.npcs||[])){
+  const t=String(n.then||'');
+  if(n.role==='rival'||n.id==='corvin'||/rivalBattle/.test(t)){
+    n.trainer={cls:'',name:'',intro:''};n.sight=n.sight||4;n.lookAround=true;
+    n.spotLine=()=>[`${RIVAL.n}: ${rivalLine(TOWN_RIVAL[state.loc])}`];
+    n.isBeat=()=>!(TOWN_RIVAL[state.loc]!==undefined&&state.rival.ace&&!state.rival.beat[TOWN_RIVAL[state.loc]]);
+    n.fight=()=>{owStop();rivalBattle()};n.then=()=>{owStop();rivalBattle()}}
+  else if(n.role==='choir'||n.id==='choir'||/choirBattle/.test(t)){
+    n.trainer={cls:'',name:'',intro:''};n.sight=n.sight||4;n.lookAround=true;
+    n.spotLine=()=>{const c=agentFor(state.loc);return[`${c.n}: ${c.line}`]};
+    n.isBeat=()=>{const si=(state.loc-1)/2;return!(state.sigils[si]&&!state.choir[si])};
+    n.fight=()=>{owStop();choirBattle()};n.then=()=>{owStop();choirBattle()}}}
 buildPixelCache().then(npcInit,npcInit).then(titleScreen,titleScreen);
 </script>
 
