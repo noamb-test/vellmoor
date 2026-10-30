@@ -10150,7 +10150,7 @@ function owStart(M){owStop();
   // follower
   const lead=state.party.find(m=>m.hp>0)||state.party[0];OWF={mon:lead||null};
   if(lead){const dex=+lead.sp.slice(1),s=lead.shiny?'shiny':'normal';K.fol={x:o.x,y:o.y,dir:o.dir,img:OW_FOL.has(dex)?owLoad(OWDIR+'pokemon/'+s+'/'+dex+'.png'):null,alt:owLoad((lead.shiny?'sprites/shiny/':'sprites/front/')+dex+'.png')};
-    const back=[o.dir,...Object.keys(OW_DIRS)].map(d=>[o.x-OW_DIRS[d][0],o.y-OW_DIRS[d][1]]).find(([x,y])=>y>=0&&owFree(K,x,y));if(back){K.fol.x=back[0];K.fol.y=back[1]}K.fol.px=K.fol.x*16;K.fol.py=K.fol.y*16}
+    /* start on the tile behind you; if that's off the map, a wall or a doorway, start under you and step out on your first move (never in front) */const bx=o.x-OW_DIRS[o.dir][0],by=o.y-OW_DIRS[o.dir][1],M0=K.map;if(bx>=0&&by>=0&&bx<M0.w&&by<M0.h&&owFree(K,bx,by)&&!(M0.exits&&M0.exits[bx+','+by])&&!(M0.warps&&M0.warps[bx+','+by])){K.fol.x=bx;K.fol.y=by}K.fol.px=K.fol.x*16;K.fol.py=K.fol.y*16}
   OWK=K;owSize();window.addEventListener('resize',owSize);
   window.addEventListener('keydown',owKey,true);window.addEventListener('keyup',owKey,true);
   view.onclick=()=>{if(K.msg)owAdvance()};
