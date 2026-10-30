@@ -10257,7 +10257,7 @@ function owDraw(K,now){const c=K.ctx,M=K.map,n=K.n||1;c.setTransform(n,0,0,n,0,0
     c.drawImage(img,0,row*32,32,32,Math.round(K.px-cam.x-8),Math.round(K.py-cam.y-16),32,32)}});
   for(const nn of K.npcs){const moving=nn.tx!==undefined&&nn.t<160;ents.push({y:nn.py,draw:()=>typeof owNpcDraw==='function'?owNpcDraw(K,nn,moving,cam,now):owSheet(K,nn.img,nn.dir,moving?1:0,nn.px,nn.py,cam)})}
   if(K.fol){const f=K.fol;ents.push({y:f.py-.5,draw:()=>{
-    const walk=!!(K.moving&&K.moving.fol&&(K.moving.fol.fx!==K.moving.fol.tx||K.moving.fol.fy!==K.moving.fol.ty));const bob=walk?Math.floor(now/140)%2:0;   // stand still unless walking
+    const bob=Math.floor(now/260)%2;
     if(owOk(f.img)){const s=f.img.naturalWidth;const fr=OW_ROW[f.dir]*2+bob;c.drawImage(f.img,0,fr*s,s,s,Math.round(f.px-cam.x-(s-16)/2),Math.round(f.py-cam.y-(s-16)-(s>32?8:0)),s,s)}
     else if(owOk(f.alt)){const s=f.alt.naturalWidth/2;const flip=f.dir==='right';c.save();if(flip){c.translate(Math.round(f.px-cam.x+8)*2,0);c.scale(-1,1)}
       c.drawImage(f.alt,0,0,f.alt.naturalWidth,f.alt.naturalHeight,Math.round(f.px-cam.x-(s-16)/2),Math.round(f.py-cam.y-(s-16)-2-bob),s,s);c.restore()}
