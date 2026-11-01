@@ -11443,6 +11443,94 @@ function creatorScreen(edit){
   .pmcFoot .btn.primary{flex:1 1 100%;order:9}}
 .pmc #pname{font:inherit;font-size:18px;background:var(--bg);color:var(--ink);border:2px solid var(--line);border-radius:10px;padding:8px 12px;width:100%;box-sizing:border-box}`;document.head.appendChild(st)}
 
+/* ============ TEST MAPS from the map maker ============
+   The map maker's "Send to game" button stores a town or room in this browser (localStorage, key vellmoor_test_map:*).
+   On start the game swaps those in for the real ones, so you can walk around what you made. Only this browser sees them. */
+const VMT_PRE='vellmoor_test_map:';
+let VMT_LIST=[];
+function vmtRead(){const out=[];try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith(VMT_PRE)){try{const v=JSON.parse(localStorage.getItem(k));if(v)out.push(Object.assign(v,{_k:k}))}catch(e){}}}}catch(e){}return out}
+function vmtClear(){try{for(const t of vmtRead())localStorage.removeItem(t._k)}catch(e){}}
+const vmtSay=lines=>()=>lines.slice();
+/* match a map maker person to the game's own (story people, gym leaders, built-in trainers) */
+function vmtBuiltin(n,base,used){const B=(base&&base.npcs)||[];const free=B.filter(o=>!used.has(o));
+  let o=null;
+  if(n.ox!==undefined)o=free.find(b=>b.x===n.ox&&b.y===n.oy);
+  if(!o&&typeof n.builtin==='string'){const[kind,idx]=n.builtin.split(':');
+    if(idx===undefined)o=free.find(b=>b.id===kind);
+    else{const cat=b=>b.role==='warden'?'warden':b.role==='choir'?'choir':b.item?'item':(b.trainer&&!b.role)?'trainer':'other';
+      o=B.filter(b=>cat(b)===kind)[+idx];if(o&&used.has(o))o=null}}
+  if(!o&&n.role){o=free.find(b=>b.role===n.role)||free.find(b=>b.id===n.role)||(n.role==='nurse'?free.find(b=>b.sheet==='pokecenter_nurse'):n.role==='clerk'?free.find(b=>b.sheet==='cashier_m'):null)}
+  if(!o)return null;used.add(o);return Object.assign({},o,{x:n.x,y:n.y,dir:n.dir||o.dir})}
+function vmtNpc(n,M,key,base,used,i){
+  if(n.builtin||n.kind==='builtin')return vmtBuiltin(n,base,used);
+  const r={x:n.x,y:n.y,dir:n.dir||'down'};if(n.sheet)r.sheet=n.sheet;if(n.wander)r.wander=true;
+  const id=n.id||`${key}_mm${i}_${n.x}_${n.y}`;
+  if(n.item||n.kind==='item')return owNpcFn(Object.assign(r,{id,item:n.item||'potion',qty:n.qty||1}),M,key);
+  if(n.mon||n.kind==='mon')return owNpcFn(Object.assign(r,{mon:+n.mon||25}),M,key);
+  if(n.cls||n.kind==='trainer'){let team=null;if(n.team&&typeof n.team==='string'){team=n.team.split(',').map(s=>s.trim()).filter(Boolean).map(s=>{const m=s.match(/^(.*?)\s+(\d+)$/);if(!m)return null;const sp=Object.keys(SP).find(k=>SP[k].n.toLowerCase()===m[1].toLowerCase());return sp?[sp,+m[2]]:null}).filter(Boolean);if(!team.length)team=null}
+    const o=owNpcFn(Object.assign(r,{id,cls:n.cls||'Youngster',name:n.name||'Joey',intro:n.intro||'Let’s battle!',after:n.after||'You’re strong.',sight:n.sight||3,n:n.n||2,team,sheet:n.sheet||'youngster'}),M,key);if(o)o.sight=n.sight||3;return o}
+  if(n.role)return owNpcFn(Object.assign(r,{role:n.role,k:n.k}),M,key);
+  return owNpcFn(Object.assign(r,{say:(n.say&&n.say.length?n.say:['…'])}),M,key)}
+function vmtSign(s,M,base){const L=s.lines||[];
+  if(s.builtin||(L[0]||'').startsWith('@builtin')){
+    if(s.ox!==undefined&&base&&base.signs&&base.signs[s.ox+','+s.oy])return base.signs[s.ox+','+s.oy];
+    if(base&&base.signs&&base.signs[s.x+','+s.y])return base.signs[s.x+','+s.y];
+    const what=(L[0]||'').replace('@builtin:','');const a=AREAS[M.area]||{n:'',desc:''};
+    if(what==='notice board')return()=>{openQuests(state.loc);return null};
+    if(what==='town sign')return vmtSay([a.n.toUpperCase(),a.desc||'']);
+    if(what==='route sign')return vmtSay([a.n.toUpperCase()]);return vmtSay(['…'])}
+  if(L.length===1&&L[0].startsWith('@'))return owSignFn(L[0]);
+  return vmtSay(L.length?L:['…'])}
+/* a room's picture with the map maker's furniture changes painted on */
+function vmtRoomPics(M){const make=up=>{const c=document.createElement('canvas');c.complete=false;c.naturalWidth=0;
+    const base=owLoad(OWDIR+'maps/'+M.img+(up?'_upper.png':'_lower.png'));const srcs=[...new Set((M.vmFurn||[]).map(f=>f.src))].map(s=>[s,owLoad(OWDIR+'maps/'+s+(up?'_upper.png':'_lower.png'))]);
+    const lowBase=owLoad(OWDIR+'maps/'+M.img+'_lower.png');
+    const done=()=>{const all=[base,lowBase,...srcs.map(x=>x[1])];if(all.some(i=>!i.complete))return;
+      c.width=base.naturalWidth||lowBase.naturalWidth||M.w*16;c.height=base.naturalHeight||lowBase.naturalHeight||M.h*16;const x=c.getContext('2d');x.imageSmoothingEnabled=false;
+      if(owOk(base))x.drawImage(base,0,0);
+      for(const h of M.vmHoles||[])for(let j=0;j<h.h;j++)for(let i=0;i<h.w;i++){const t=h.tiles&&h.tiles[j*h.w+i]||[h.fx,h.fy];
+        if(up)x.clearRect((h.x+i)*16,(h.y+j)*16,16,16);else if(owOk(lowBase))x.drawImage(lowBase,t[0]*16,t[1]*16,16,16,(h.x+i)*16,(h.y+j)*16,16,16)}
+      const S=Object.fromEntries(srcs);for(const f of(M.vmFurn||[]).slice().sort((a,b)=>a.y+a.h-b.y-b.h)){const im=S[f.src];if(owOk(im))x.drawImage(im,f.sx*16,f.sy*16,f.w*16,f.h*16,f.x*16,f.y*16,f.w*16,f.h*16)}
+      c.complete=true;c.naturalWidth=c.width};
+    for(const i of[base,lowBase,...srcs.map(x=>x[1])]){if(!i.complete){i.addEventListener('load',done);i.addEventListener('error',done)}}done();return c};
+  return{lower:make(false),upper:make(true)}}
+function vmtApply(t){
+  if(t.kind==='town'){const key=OW_AREA[t.area];const base=OW_MAPS[key];if(!key||!base)return null;const R=t.map;
+    const M=Object.assign({},base,{w:R.w,h:R.h,coll:R.coll,grass:R.grass,doors:R.doors,exits:base.exits,warps:base.warps||{},key,area:t.area,vmTest:t,anyDoor:base.anyDoor});
+    for(const s of['north','south','east','west'])delete M[s];for(const[s,v]of Object.entries(R.sides||{}))M[s]=v;
+    M.arrive=Object.assign({},R.arrive);M.start=R.start||base.start;
+    M.doorAct={};for(const[nm,a]of Object.entries(R.doorAct||{})){if(a.t==='keep'){if(base.doorAct&&base.doorAct[nm])M.doorAct[nm]=base.doorAct[nm]}else M.doorAct[nm]=owDoorFn(a)}
+    M.signs={};for(const s of R.signs||[])M.signs[s.x+','+s.y]=vmtSign(s,M,base);
+    const used=new Set();M.npcs=(R.npcs||[]).map((n,i)=>vmtNpc(n,M,key,base,used,i)).filter(Boolean);
+    M.vmLower=t.lower;M.vmUpper=t.upper;OW_MAPS[key]=M;return key}
+  if(t.kind==='room'){const key=t.key,base=OW_MAPS[key];if(!key||!base)return null;const R=t.room;
+    const M=Object.assign({},base,{w:R.w,h:R.h,coll:R.coll,grass:base.grass&&base.grass.length?R.coll.map(r=>'0'.repeat(r.length)):[],img:R.img||base.img,key,vmTest:t});
+    const firstTo=(R.mats.find(m=>m.to)||{}).to||Object.values(base.exits||{})[0];
+    M.exits={};for(const m of R.mats)M.exits[m.x+','+m.y]=m.to||firstTo;
+    M.signs={};for(const s of R.signs||[])M.signs[s.x+','+s.y]=vmtSign(s,M,base);
+    const used=new Set();M.npcs=(R.npcs||[]).map((n,i)=>vmtNpc(n,M,key,base,used,i)).filter(Boolean);
+    M.vmHoles=R.holes||[];M.vmFurn=R.furn||[];M.vmMats=R.mats.map(m=>[m.x,m.y]);OW_MAPS[key]=M;return key}
+  return null}
+function vmtLoadAll(){VMT_LIST=[];for(const t of vmtRead()){try{const k=vmtApply(t);if(k)VMT_LIST.push({key:k,name:t.name||k,at:t.at})}catch(e){console.error('test map',e)}}}
+vmtLoadAll();
+/* use the test pictures */
+{const _start=owStart;owStart=function(M){const r=_start.apply(this,arguments);const K=OWK;if(!K||!M)return r;
+  if(M.vmLower){K.lower=owLoad(M.vmLower);K.upper=M.vmUpper?owLoad(M.vmUpper):null}
+  else if(M.vmHoles&&(M.vmHoles.length||M.vmFurn.length)){const p=vmtRoomPics(M);K.lower=p.lower;K.upper=p.upper}
+  if(M.vmTest&&!K._vmtNote){K._vmtNote=1;setTimeout(()=>{try{if(OWK===K&&!K.msg)owSay([`You’re walking around your test map “${M.vmTest.name||M.key}” from the map maker. Only this browser sees it.`])}catch(e){}},500)}
+  return r}}
+/* if a door drops you somewhere that isn't a floor any more, land on the room's exit mat instead */
+{const _warp=owWarp;owWarp=function(map,x,y,dir){const M=OW_MAPS[map];
+  /* leaving a room into a test town: come out in front of that building's door, wherever it is now */
+  const from=state.ow&&state.ow.map,ret=M&&M.vmTest&&M.vmTest.kind==='town'&&M.vmTest.map.returns&&M.vmTest.map.returns[from];
+  if(ret){x=ret[0];y=ret[1];dir='down'}
+  else if(M&&M.vmTest&&M.vmTest.kind==='town'&&(!M.coll[y]||M.coll[y][x]!=='0')){const s=M.start||[x,y,dir];x=s[0];y=s[1];dir=s[2]||'down'}
+  else if(M&&M.vmTest&&(!M.coll[y]||M.coll[y][x]!=='0')){const m=(M.vmMats||[])[0]||Object.keys(M.exits||{}).map(k=>k.split(',').map(Number))[0];if(m){x=m[0];y=m[1];dir='up'}}
+  return _warp.call(this,map,x,y,dir)}}
+/* MENU > OPTIONS lists test maps and can remove them */
+{const _opt=hgOptions;hgOptions=function(){_opt();if(!VMT_LIST.length||!PTU)return;const w=PTU.el.querySelector('.hgOpt');if(!w)return;
+  const b=document.createElement('button');b.textContent=`TEST MAPS: ${VMT_LIST.length} — REMOVE`;b.onclick=e=>{e.stopPropagation();if(!confirm('Remove the test maps you sent from the map maker? The game goes back to its own maps.'))return;vmtClear();location.reload()};w.appendChild(b)}}
+
 buildPixelCache().then(npcInit,npcInit).then(titleScreen,titleScreen);
 </script>
 
