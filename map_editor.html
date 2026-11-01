@@ -320,7 +320,7 @@ function newPerson(t){const b={x:t[0],y:t[1],dir:'down'};
   if(personKind==='item')return Object.assign(b,{kind:'item',item:'potion',qty:1});
   if(personKind==='mon')return Object.assign(b,{kind:'mon',mon:25,sheet:'youngster'});
   return Object.assign(b,{kind:'person',sheet:'lass',wander:false,say:['Hello there!']})}
-function after(){renderAll();panel();check()}
+function after(){renderAll();panel();check();try{save()}catch(e){}}
 /* ---------- right panel ---------- */
 function esc(s){return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 function opts(list,v){return list.map(([k,l])=>`<option value="${esc(k)}" ${String(k)===String(v)?'selected':''}>${esc(l)}</option>`).join('')}
@@ -483,7 +483,7 @@ function fromGame(key){const r=RD.rooms[key];const m={v:1,mode:'indoor',name:r.t
   return m}
 function roomDraft(key){try{const m=JSON.parse(localStorage.getItem('vme_room:'+key)||'null');return m&&m.mode==='indoor'?m:null}catch(e){return null}}
 function roomSent(key){try{const t=JSON.parse(localStorage.getItem('vellmoor_test_map:room:'+key)||'null');if(!t||!t.room)return null;const r=RD.rooms[key]||{},R=t.room;
-  return{v:1,mode:'indoor',name:t.name||(r.title||'Room'),key,area:r.area,title:r.title,img:R.img,w:R.w,h:R.h,coll:R.coll.slice(),mats:R.mats||[],npcs:R.npcs||[],signs:R.signs||[],holes:R.holes||[],furn:(R.furn||[]).map(f=>Object.assign({},f,{_ax:f.x,_ay:f.y,_b:f.block||'all'})),puzzle:r.pz}}catch(e){return null}}
+  return{v:1,mode:'indoor',name:t.name||(r.title||'Room'),key,area:r.area,title:r.title,img:R.img,w:R.w,h:R.h,ox:R.ox||0,oy:R.oy||0,coll:R.coll.slice(),mats:R.mats||[],npcs:R.npcs||[],signs:R.signs||[],holes:R.holes||[],furn:(R.furn||[]).map(f=>Object.assign({},f,{_ax:f.x,_ay:f.y,_b:f.block||'all'})),puzzle:r.pz}}catch(e){return null}}
 function loadRoom(key){const d=roomDraft(key);if(d)return normIn(d);const s=roomSent(key);if(s)return normIn(s);return fromGame(key)}
 function blankRoom(img){const m={v:1,mode:'indoor',name:'New room',key:null,area:null,title:'House',img,w:12,h:10,coll:[],mats:[],npcs:[],signs:[]};
   m.coll=Array.from({length:m.h},(_,y)=>Array.from({length:m.w},(_,x)=>(x===0||y===0||x===m.w-1||y===m.h-1)?'1':'0').join(''));m._fitPending=true;return m}
@@ -493,7 +493,7 @@ function normIn(m){m.mats=m.mats||[];m.npcs=m.npcs||[];m.signs=m.signs||[];m.col
 function fitRoomToImage(){const o=roomImg(M.img);if(!o||!o.ok)return;const w=Math.max(4,Math.round(o.lower.naturalWidth/16)),h=Math.max(4,Math.round(o.lower.naturalHeight/16));
   let dark=null;try{const c=document.createElement('canvas');c.width=w*16;c.height=h*16;const x=c.getContext('2d');x.drawImage(o.lower,0,0);const d=x.getImageData(0,0,c.width,c.height).data;
     dark=(tx,ty)=>{let n=0;for(let j=0;j<16;j+=2)for(let i=0;i<16;i+=2){const p=((ty*16+j)*c.width+tx*16+i)*4;if(d[p+3]<20||d[p]+d[p+1]+d[p+2]<40)n++}return n>=56}}catch(e){dark=null}
-  M.w=w;M.h=h;M.coll=Array.from({length:h},(_,y)=>Array.from({length:w},(_,x)=>(x===0||y===0||x===w-1||y===h-1||(dark&&dark(x,y)))?'1':'0').join(''));
+  M.ox=0;M.oy=0;M.w=w;M.h=h;M.coll=Array.from({length:h},(_,y)=>Array.from({length:w},(_,x)=>(x===0||y===0||x===w-1||y===h-1||(dark&&dark(x,y)))?'1':'0').join(''));
   M.mats=M.mats.filter(t=>t.x<w&&t.y<h);M.npcs=M.npcs.filter(t=>t.x<w&&t.y<h);M.signs=M.signs.filter(t=>t.x<w&&t.y<h);after()}
 const wall=(x,y)=>x<0||y<0||x>=M.w||y>=M.h||M.coll[y][x]!=='0';
 function setWall(x,y,v){if(x<0||y<0||x>=M.w||y>=M.h)return false;const r=M.coll[y],c=v?'1':'0';if(r[x]===c)return false;M.coll[y]=r.slice(0,x)+c+r.slice(x+1);return true}
@@ -521,7 +521,7 @@ const _palette=palette;palette=function(){if(!isIn())return _palette();const P=$
 const _renderAll=renderAll;renderAll=function(){if(!isIn())return _renderAll();
   const W=M.w*16,H=M.h*16;cv.width=Math.round(W*zoom);cv.height=Math.round(H*zoom);cv.style.left=camX+'px';cv.style.top=camY+'px';
   ctx.imageSmoothingEnabled=false;ctx.setTransform(zoom,0,0,zoom,0,0);ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);
-  const o=roomImg(M.img);if(o&&o.ok)ctx.drawImage(o.lower,0,0);furnLower(o);
+  const o=roomImg(M.img);if(o&&o.ok)ctx.drawImage(o.lower,(M.ox||0)*16,(M.oy||0)*16);furnLower(o);
   for(const s of M.signs){ctx.fillStyle='rgba(255,207,92,.35)';ctx.fillRect(s.x*16+2,s.y*16+2,12,12);ctx.fillStyle='#3a2a00';ctx.font='bold 10px system-ui';ctx.fillText('i',s.x*16+6,s.y*16+12)}
   if($('#oPeople').checked)for(const n of M.npcs.slice().sort((a,b)=>a.y-b.y)){extraSheet(n.sheet);drawNpc(n)}
   furnUpper(o);
@@ -572,6 +572,9 @@ const _panel=panel;panel=function(){if(!isIn())return _panel();const R=$('#right
    <label>Replaces in the game</label><select id="iKey">${roomOptions(M.key)}</select>
    <label>Room picture</label><select id="iImg">${RD.images.map(([k])=>`<option value="${k}" ${k===M.img?'selected':''}>${esc(nice(k))}</option>`).join('')}</select>
    <div class="muted" style="margin-top:6px">${M.w} × ${M.h} tiles${M.puzzle?' · This gym has a puzzle (switches, lanterns…). Walls you paint here sit under the puzzle.':''}</div>
+   <label>Size (tiles)</label><div class="row"><input id="iW" type="number" min="4" max="60" value="${M.w}" style="width:5em"> × <input id="iH" type="number" min="4" max="60" value="${M.h}" style="width:5em"></div>
+   <label>Grow or shrink from</label><select id="iAnch"><option value="br">Right and bottom edges</option><option value="tl">Left and top edges</option><option value="r">Right edge only</option><option value="b">Bottom edge only</option><option value="l">Left edge only</option><option value="t">Top edge only</option></select>
+   <div class="row" style="margin-top:6px"><button id="iResize">Resize room</button></div>
    <div class="row" style="margin-top:6px"><button id="iRewall" title="Start the walls over from the picture">Redo walls from picture</button></div>
    ${M.key?`<div class="muted" style="margin-top:8px">${roomDraft(M.key)||roomSent(M.key)?'You’re editing your version of this room.':'This is the room as it is in the game.'}</div><div class="row" style="margin-top:6px"><button id="iOrig">Start over from the game’s version</button></div>`:''}</div>`;
   h+=`<div class="card"><h3>Check</h3><ul class="issues" id="issues"></ul></div>`;
@@ -580,6 +583,7 @@ const _panel=panel;panel=function(){if(!isIn())return _panel();const R=$('#right
   on('#iKey','change',e=>{const k=e.target.value;if(k&&RD.rooms[k]&&confirm('Open '+RD.rooms[k].title+'? (Your changes to this room stay saved.)')){setMap(loadRoom(k));return}snap();M.key=k||null;check()});
   on('#iImg','change',e=>{snap();M.img=e.target.value;const o2=roomImg(M.img);if(o2.ok)fitRoomToImage();else M._fitPending=true;renderAll()});
   on('#iOrig','click',()=>{if(!confirm('Throw away your changes to this room and load it as it is in the game? (A version you already sent to the game stays until you remove it there.)'))return;try{localStorage.removeItem('vme_room:'+M.key)}catch(e){}setMap(fromGame(M.key))});
+  on('#iResize','click',()=>{const w=Math.max(4,Math.min(60,+$('#iW').value|0)),h=Math.max(4,Math.min(60,+$('#iH').value|0));if(w===M.w&&h===M.h)return;resizeRoom(w,h,$('#iAnch').value)});
   on('#iRewall','click',()=>{if(!confirm('Replace all walls with a fresh outline from the picture?'))return;snap();fitRoomToImage()});
   check()};
 
@@ -673,39 +677,45 @@ function fnorm(){M.furn=M.furn||[];M.holes=M.holes||[]}
 let floorPick=null,floorPicking=false,stampOn=false,stampSrc=null;
 function tileSig(i,j){try{const o=roomImg(M.img);if(!o||!o.ok)return null;if(!o._px){const c=document.createElement('canvas');c.width=o.lower.naturalWidth;c.height=o.lower.naturalHeight;const x=c.getContext('2d');x.drawImage(o.lower,0,0);o._px=x.getImageData(0,0,c.width,c.height)}
   const d=o._px,W=d.width;let h=0;for(let y=0;y<16;y+=3)for(let xx=0;xx<16;xx+=3){const q=((j*16+y)*W+i*16+xx)*4;h=(h*31+(d.data[q]>>3)*7+(d.data[q+1]>>3)*3+(d.data[q+2]>>3))>>>0}return h}catch(e){return null}}
-function floorNear(x,y,w,h){if(floorPick)return floorPick.slice();
-  const open=(i,j)=>i>=0&&j>=0&&i<M.w&&j<M.h&&M.coll[j][i]==='0'&&!(i>=x&&i<x+w&&j>=y&&j<y+h)&&!(M.holes||[]).some(o=>i>=o.x&&i<o.x+o.w&&j>=o.y&&j<o.y+o.h);
+const toPic=t=>t&&[t[0]-(M.ox||0),t[1]-(M.oy||0)];
+/* a tile of the picture that is (almost) all black: the void around a room, never floor */
+function picDark(i,j){try{const o=roomImg(M.img);if(!o||!o.ok)return false;const d=o._px||roomPx();if(!d)return false;const px=i-(M.ox||0),py=j-(M.oy||0);if(px<0||py<0||px*16>=d.width||py*16>=d.height)return true;
+  let n=0,k=0;for(let y=0;y<16;y+=2)for(let x=0;x<16;x+=2){const q=((py*16+y)*d.width+px*16+x)*4;k++;if(d.data[q+3]<20||d.data[q]+d.data[q+1]+d.data[q+2]<60)n++}return n>k*.6}catch(e){return false}}
+function floorNear(x,y,w,h){if(floorPick)return floorPick.slice();return toPic(floorNear0(x,y,w,h))}
+function floorNear0(x,y,w,h){
+  const open=(i,j)=>i>=0&&j>=0&&i<M.w&&j<M.h&&M.coll[j][i]==='0'&&inPic(i,j)&&!picDark(i,j)&&!(i>=x&&i<x+w&&j>=y&&j<y+h)&&!(M.holes||[]).some(o=>i>=o.x&&i<o.x+o.w&&j>=o.y&&j<o.y+o.h);
   const cand=[];for(let j=0;j<M.h;j++)for(let i=0;i<M.w;i++)if(open(i,j)){const d=Math.max(x-i,i-(x+w-1),0)+Math.max(y-j,j-(y+h-1),0);cand.push([i,j,d])}
-  if(cand.length){const cnt={};let sig=true;for(const c of cand){c[3]=tileSig(c[0],c[1]);if(c[3]===null){sig=false;break}cnt[c[3]]=(cnt[c[3]]||0)+1}
+  if(cand.length){const cnt={};let sig=true;for(const c of cand){c[3]=tileSig(c[0]-(M.ox||0),c[1]-(M.oy||0));if(c[3]===null){sig=false;break}cnt[c[3]]=(cnt[c[3]]||0)+1}
     if(sig){cand.sort((a,b)=>(cnt[b[3]]-cnt[a[3]])||(a[2]-b[2]));return[cand[0][0],cand[0][1]]}
     /* no pixel access: nearest open tile whose neighbours are all open (plain floor, not a rug edge or doorway) */
     const inner=cand.filter(([i,j])=>[[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,-1],[1,-1],[-1,1]].every(([a,b])=>open(i+a,j+b)));
     const L=(inner.length?inner:cand).sort((a,b)=>a[2]-b[2]);return[L[0][0],L[0][1]]}
-  let best=null,bd=1e9;for(let j=0;j<M.h;j++)for(let i=0;i<M.w;i++){if(M.coll[j][i]!=='0')continue;if(i>=x&&i<x+w&&j>=y&&j<y+h)continue;
+  let best=null,bd=1e9;for(let j=0;j<M.h;j++)for(let i=0;i<M.w;i++){if(M.coll[j][i]!=='0'||!inPic(i,j)||picDark(i,j))continue;if(i>=x&&i<x+w&&j>=y&&j<y+h)continue;
   if((M.holes||[]).some(o=>i>=o.x&&i<o.x+o.w&&j>=o.y&&j<o.y+o.h))continue;const d=Math.max(x-i,i-(x+w-1),0)**2+Math.max(y-j,j-(y+h-1),0)**2;if(d<bd){bd=d;best=[i,j]}}return best||[x,Math.min(M.h-1,y+h)]}
 function stampAt(t){if(!inside(t)||!stampSrc)return;fnorm();const[x,y]=t;M.holes=M.holes.filter(o=>!(o.stamp&&o.x===x&&o.y===y));
   M.holes.push({x,y,w:1,h:1,fx:stampSrc[0],fy:stampSrc[1],tiles:[stampSrc.slice()],stamp:true});renderAll()}
+function inPic(i,j){const o=roomImg(M.img);if(!o||!o.ok)return true;const px=i-(M.ox||0),py=j-(M.oy||0);return px>=0&&py>=0&&px<(o.lower.naturalWidth>>4)&&py<(o.lower.naturalHeight>>4)}
 function fillFor(x,y,w,h){if(floorPick)return null;const out=[];
-  const open=(i,j)=>i>=0&&j>=0&&i<M.w&&j<M.h&&M.coll[j][i]==='0'&&!(i>=x&&i<x+w&&j>=y&&j<y+h)&&!(M.holes||[]).some(o=>i>=o.x&&i<o.x+o.w&&j>=o.y&&j<o.y+o.h)&&!M.npcs.some(n=>n.x===i&&n.y===j);
+  const open=(i,j)=>i>=0&&j>=0&&i<M.w&&j<M.h&&M.coll[j][i]==='0'&&inPic(i,j)&&!picDark(i,j)&&!(i>=x&&i<x+w&&j>=y&&j<y+h)&&!(M.holes||[]).some(o=>i>=o.x&&i<o.x+o.w&&j>=o.y&&j<o.y+o.h)&&!M.npcs.some(n=>n.x===i&&n.y===j);
   for(let j=0;j<h;j++)for(let i=0;i<w;i++){const tx=x+i,ty=y+j;let got=null;
     for(let r=1;r<Math.max(M.w,M.h)&&!got;r++){for(const[a,b]of[[-r,0],[r,0],[0,r],[0,-r]])if(open(tx+a,ty+b)){got=[tx+a,ty+b];break}
       if(!got)for(let k=1;k<r&&!got;k++)for(const[a,b]of[[-r,k],[r,k],[-r,-k],[r,-k],[k,r],[-k,r],[k,-r],[-k,-r]])if(open(tx+a,ty+b)){got=[tx+a,ty+b];break}}
-    out.push(got||floorNear(x,y,w,h))}return out}
+    out.push(got?toPic(got):floorNear(x,y,w,h))}return out}
 function fWalls(f,on){const m=f.block||'all';for(let j=0;j<f.h;j++)for(let i=0;i<f.w;i++){if(m==='none')continue;if(m==='bottom'&&j<f.h-1)continue;setWall(f.x+i,f.y+j,on)}}
 function fSync(){fnorm();for(const f of M.furn){if(f._ax===f.x&&f._ay===f.y&&f._b===(f.block||'all'))continue;
   if(f._ax!==undefined){const o=Object.assign({},f,{x:f._ax,y:f._ay,block:f._b});fWalls(o,false)}fWalls(f,true);f._ax=f.x;f._ay=f.y;f._b=f.block||'all'}}
 function furnLower(o){fnorm();if(o&&o.ok)for(const h of M.holes)for(let j=0;j<h.h;j++)for(let i=0;i<h.w;i++){const t=h.tiles&&h.tiles[j*h.w+i]||[h.fx,h.fy];ctx.drawImage(o.lower,t[0]*16,t[1]*16,16,16,(h.x+i)*16,(h.y+j)*16,16,16)}
   for(const f of M.furn.slice().sort((a,b)=>a.y+a.h-b.y-b.h)){const s=roomImg(f.src);if(s&&s.ok)ctx.drawImage(s.lower,f.sx*16,f.sy*16,f.w*16,f.h*16,f.x*16,f.y*16,f.w*16,f.h*16)}}
-function furnUpper(o){fnorm();if(o&&o.up){if(M.holes.length){const c=document.createElement('canvas');c.width=o.upper.naturalWidth;c.height=o.upper.naturalHeight;const x=c.getContext('2d');x.drawImage(o.upper,0,0);for(const h of M.holes)x.clearRect(h.x*16,h.y*16,h.w*16,h.h*16);ctx.drawImage(c,0,0)}else ctx.drawImage(o.upper,0,0)}
+function furnUpper(o){fnorm();if(o&&o.up){if(M.holes.length){const c=document.createElement('canvas');c.width=o.upper.naturalWidth;c.height=o.upper.naturalHeight;const x=c.getContext('2d');x.drawImage(o.upper,0,0);for(const h of M.holes)x.clearRect((h.x-(M.ox||0))*16,(h.y-(M.oy||0))*16,h.w*16,h.h*16);ctx.drawImage(c,(M.ox||0)*16,(M.oy||0)*16)}else ctx.drawImage(o.upper,(M.ox||0)*16,(M.oy||0)*16)}
   for(const f of M.furn){const s=roomImg(f.src);if(s&&s.up)ctx.drawImage(s.upper,f.sx*16,f.sy*16,f.w*16,f.h*16,f.x*16,f.y*16,f.w*16,f.h*16)}}
 function furnMarks(){fnorm();if(tool!=='furn'&&tool!=='select')return;ctx.lineWidth=1.5/zoom;
   for(const f of M.furn){ctx.strokeStyle=sel&&sel.t==='f'&&M.furn[sel.i]===f?'#6fb3ff':'rgba(255,207,92,.8)';ctx.setLineDash([4/zoom,3/zoom]);ctx.strokeRect(f.x*16,f.y*16,f.w*16,f.h*16);ctx.setLineDash([])}
   if(fdrag&&fdrag.box){const[a,b]=fdrag.box;const x0=Math.min(a[0],b[0]),y0=Math.min(a[1],b[1]),x1=Math.max(a[0],b[0]),y1=Math.max(a[1],b[1]);ctx.fillStyle='rgba(111,179,255,.25)';ctx.fillRect(x0*16,y0*16,(x1-x0+1)*16,(y1-y0+1)*16);ctx.strokeStyle='#6fb3ff';ctx.strokeRect(x0*16,y0*16,(x1-x0+1)*16,(y1-y0+1)*16)}
-  if(stampOn&&stampSrc&&hover&&tool==='furn'){const o=roomImg(M.img);if(o&&o.ok){ctx.globalAlpha=.75;ctx.drawImage(o.lower,stampSrc[0]*16,stampSrc[1]*16,16,16,hover[0]*16,hover[1]*16,16,16);ctx.globalAlpha=1}ctx.strokeStyle='#3dff7a';ctx.lineWidth=1.5/zoom;ctx.strokeRect(stampSrc[0]*16,stampSrc[1]*16,16,16)}
+  if(stampOn&&stampSrc&&hover&&tool==='furn'){const o=roomImg(M.img);if(o&&o.ok){ctx.globalAlpha=.75;ctx.drawImage(o.lower,stampSrc[0]*16,stampSrc[1]*16,16,16,hover[0]*16,hover[1]*16,16,16);ctx.globalAlpha=1}ctx.strokeStyle='#3dff7a';ctx.lineWidth=1.5/zoom;ctx.strokeRect((stampSrc[0]+(M.ox||0))*16,(stampSrc[1]+(M.oy||0))*16,16,16)}
   if(fsel){ctx.strokeStyle='#6fb3ff';ctx.lineWidth=2/zoom;ctx.strokeRect(fsel.x*16,fsel.y*16,fsel.w*16,fsel.h*16)}
   if(fpick&&hover&&tool==='furn'){const s=roomImg(fpick.src);ctx.globalAlpha=.7;if(s&&s.ok)ctx.drawImage(s.lower,fpick.sx*16,fpick.sy*16,fpick.w*16,fpick.h*16,hover[0]*16,hover[1]*16,fpick.w*16,fpick.h*16);ctx.globalAlpha=1}}
 /* cut = take it out of the picture (the spot gets floor), copy = leave the original */
-function fTake(r,cut){fnorm();const f={src:M.img,sx:r.x,sy:r.y,w:r.w,h:r.h,x:r.x+(cut?0:1),y:r.y+(cut?0:1),block:'all'};
+function fTake(r,cut){fnorm();const f={src:M.img,sx:r.x-(M.ox||0),sy:r.y-(M.oy||0),w:r.w,h:r.h,x:r.x+(cut?0:1),y:r.y+(cut?0:1),block:'all'};
   if(cut){const[fx,fy]=floorNear(r.x,r.y,r.w,r.h);M.holes.push({x:r.x,y:r.y,w:r.w,h:r.h,fx,fy,tiles:fillFor(r.x,r.y,r.w,r.h)});for(let j=0;j<r.h;j++)for(let i=0;i<r.w;i++)setWall(r.x+i,r.y+j,false);f._ax=undefined}
   M.furn.push(f);fSync();sel={t:'f',i:M.furn.length-1};fsel=null;after();palette()}
 const _pal2=palette;palette=function(){_pal2();if(!isIn())return;const P=$('#palette');
@@ -721,7 +731,7 @@ const _pal2=palette;palette=function(){_pal2();if(!isIn())return;const P=$('#pal
   if(g('#fCut'))g('#fCut').onclick=()=>{snap();fTake(fsel,true)};
   if(g('#fCopy'))g('#fCopy').onclick=()=>{snap();fTake(fsel,false)};
   if(g('#fGone'))g('#fGone').onclick=()=>{snap();fnorm();const r=fsel,[fx,fy]=floorNear(r.x,r.y,r.w,r.h);M.holes.push({x:r.x,y:r.y,w:r.w,h:r.h,fx,fy,tiles:fillFor(r.x,r.y,r.w,r.h)});for(let j=0;j<r.h;j++)for(let i=0;i<r.w;i++)setWall(r.x+i,r.y+j,false);fsel=null;after();palette()};
-  if(g('#fLib'))g('#fLib').onclick=()=>{const a=flib();a.push({src:M.img,sx:fsel.x,sy:fsel.y,w:fsel.w,h:fsel.h,name:(prompt('Name this piece','Furniture')||'Furniture').slice(0,24)});flibSave(a);palette()};
+  if(g('#fLib'))g('#fLib').onclick=()=>{const a=flib();a.push({src:M.img,sx:fsel.x-(M.ox||0),sy:fsel.y-(M.oy||0),w:fsel.w,h:fsel.h,name:(prompt('Name this piece','Furniture')||'Furniture').slice(0,24)});flibSave(a);palette()};
   if(g('#fNo'))g('#fNo').onclick=()=>{fsel=null;renderAll();palette()};
   if(g('#fStamp'))g('#fStamp').onclick=()=>{stampOn=!stampOn;if(!stampOn)stampSrc=null;fsel=null;fpick=null;palette();renderAll()};
   if(g('#fStampNew'))g('#fStampNew').onclick=()=>{stampSrc=null;palette()};
@@ -747,8 +757,8 @@ const _pan2=panel;panel=function(){_pan2();if(!isIn()||!sel||sel.t!=='f')return;
 stage.addEventListener('pointerdown',e=>{if(!isIn()||space||e.button!==0||(tool!=='furn'&&tool!=='item'))return;const t=tileAt(e);e.stopImmediatePropagation();try{stage.setPointerCapture(e.pointerId)}catch(_){}
   if(tool==='item'){if(!inside(t))return;snap();const pk=personKind;personKind='item';const n=newPerson(t);personKind=pk;M.npcs.push(n);sel={t:'n',i:M.npcs.length-1};after();return}
   fnorm();
-  if(floorPicking){if(inside(t)){floorPick=[t[0],t[1]];floorPicking=false;palette();renderAll()}return}
-  if(stampOn){if(!inside(t))return;if(!stampSrc){stampSrc=[t[0],t[1]];palette();return}snap();fdrag={stamp:true};stampAt(t);return}
+  if(floorPicking){if(inside(t)){floorPick=toPic(t);floorPicking=false;palette();renderAll()}return}
+  if(stampOn){if(!inside(t))return;if(!stampSrc){stampSrc=toPic(t);palette();return}snap();fdrag={stamp:true};stampAt(t);return}
   if(fpick){if(!inside(t))return;snap();M.furn.push({src:fpick.src,sx:fpick.sx,sy:fpick.sy,w:fpick.w,h:fpick.h,x:Math.min(t[0],M.w-fpick.w),y:Math.min(t[1],M.h-fpick.h),block:'all'});fSync();sel={t:'f',i:M.furn.length-1};if(!e.shiftKey)fpick=null;after();palette();return}
   const h=hit(t[0],t[1]);if(h&&h.t==='f'){snap();sel=h;const f=M.furn[h.i];fdrag={move:true,from:t,ox:f.x,oy:f.y};fsel=null;panel();renderAll();return}
   sel=null;fsel=null;fdrag={box:[t,t]};panel();renderAll()},true);
@@ -796,7 +806,7 @@ function townData(){const notes=[];const C=collision();const D={w:M.w,h:M.h,coll
   return[D,notes]}
 function sendToGame(){if(!M)return;let rec,id,notes=[];
   try{if(isIn()){if(!M.key){alert('Pick which room this replaces first (“Replaces in the game” on the right).');return}
-      fnorm();rec={kind:'room',key:M.key,name:M.name||M.title,at:Date.now(),room:{w:M.w,h:M.h,img:M.img,coll:M.coll.slice(),mats:M.mats,npcs:M.npcs,signs:M.signs,holes:M.holes,furn:M.furn.map(f=>({src:f.src,sx:f.sx,sy:f.sy,w:f.w,h:f.h,x:f.x,y:f.y,block:f.block}))}};id='room:'+M.key}
+      fnorm();rec={kind:'room',key:M.key,name:M.name||M.title,at:Date.now(),room:{w:M.w,h:M.h,ox:M.ox||0,oy:M.oy||0,img:M.img,coll:M.coll.slice(),mats:M.mats,npcs:M.npcs,signs:M.signs,holes:M.holes,furn:M.furn.map(f=>({src:f.src,sx:f.sx,sy:f.sy,w:f.w,h:f.h,x:f.x,y:f.y,block:f.block}))}};id='room:'+M.key}
     else{if(M.area==null){alert('Pick which town this replaces first (“Replaces in the game” on the right).');return}
       const[lo,up]=bakeTown();const[D,n]=townData();notes=n;rec={kind:'town',area:M.area,name:M.name,at:Date.now(),map:D,lower:lo,upper:up};id='town:'+M.area}}
   catch(e){console.error(e);alert('Could not build the map for the game: '+e.message);return}
@@ -822,14 +832,15 @@ function detectPiece(tx,ty){const px=detectPx(tx,ty);
   if(wall(tx,ty)&&tx>0&&ty>0&&tx<M.w-1&&ty<M.h-1){const w=detectByWalls(tx,ty);
     if(w&&w.w<=5&&w.h<=5){if(px&&px.x>=w.x-1&&px.x+px.w<=w.x+w.w+1&&px.y<w.y&&w.y-px.y<=2){const y1=w.y+w.h;w.y=px.y;w.h=y1-px.y}return w}}
   return px}
-function detectPx(tx,ty){const d=roomPx();if(!d)return detectByWalls(tx,ty);const W=d.width,H=d.height,P=d.data,tw=Math.min(M.w,W>>4),th=Math.min(M.h,H>>4);
+function detectPx(tx0,ty0){const d=roomPx();if(!d)return detectByWalls(tx0,ty0);const OX=M.ox||0,OY=M.oy||0,r0=detectPx0(d,tx0-OX,ty0-OY,OX,OY);return r0&&{x:r0.x+OX,y:r0.y+OY,w:r0.w,h:r0.h}}
+function detectPx0(d,tx,ty,OX,OY){const W=d.width,H=d.height,P=d.data,tw=Math.min(M.w,W>>4),th=Math.min(M.h,H>>4);
   const sigOf=(i,j)=>{let h=0;for(let y=0;y<16;y+=2)for(let x=0;x<16;x+=2){const q=((j*16+y)*W+i*16+x)*4;h=(h*31+(P[q]>>4)*256+(P[q+1]>>4)*16+(P[q+2]>>4))>>>0}return h};
   const sig=[];for(let j=0;j<th;j++){sig.push([]);for(let i=0;i<tw;i++)sig[j].push(sigOf(i,j))}
   // background tiles: common floor tiles, plus each row's repeating wall/floor tile
-  const cnt={},rep={};for(let j=0;j<th;j++)for(let i=0;i<tw;i++)if(M.coll[j]&&M.coll[j][i]==='0'){const s=sig[j][i];cnt[s]=(cnt[s]||0)+1;rep[s]=rep[s]||[i,j]}
+  const cnt={},rep={};for(let j=0;j<th;j++)for(let i=0;i<tw;i++)if(M.coll[j+OY]&&M.coll[j+OY][i+OX]==='0'){const s=sig[j][i];cnt[s]=(cnt[s]||0)+1;rep[s]=rep[s]||[i,j]}
   const floors=Object.entries(cnt).filter(([s,n])=>n>=2).sort((a,b)=>b[1]-a[1]).slice(0,10).map(([s])=>rep[s]);
   // the back-wall band: rows above the first row that is mostly floor you can walk on (a repeating wall tile there counts as background)
-  let band=0;for(let j=0;j<th;j++){let o=0;for(let i=0;i<tw;i++)if(M.coll[j]&&M.coll[j][i]==='0')o++;if(o>=tw*.4){band=j;break}}
+  let band=0;for(let j=0;j<th;j++){let o=0;for(let i=0;i<tw;i++)if(M.coll[j+OY]&&M.coll[j+OY][i+OX]==='0')o++;if(o>=tw*.4){band=j;break}}
   const rowRep=[];for(let j=0;j<th;j++){if(j>=band){rowRep.push(null);continue}const c={},r={};for(let i=0;i<tw;i++){const s=sig[j][i];c[s]=(c[s]||0)+1;r[s]=r[s]||[i,j]}const best=Object.entries(c).sort((a,b)=>b[1]-a[1])[0];rowRep.push(best&&best[1]>=3?r[best[0]]:null)}
   const pix=(x,y)=>{const q=(y*W+x)*4;return[P[q],P[q+1],P[q+2],P[q+3]]};
   const near=(c,t)=>{const dd=Math.abs(c[0]-t[0])+Math.abs(c[1]-t[1])+Math.abs(c[2]-t[2]);if(dd<=42)return true;
@@ -858,6 +869,24 @@ stage.addEventListener('pointerdown',e=>{if(!isIn()||tool!=='furn'||!e.shiftKey|
 window.addEventListener('pointerup',()=>setTimeout(()=>{if(!isIn()||!fsel||fsel.w!==1||fsel.h!==1||tool!=='furn')return;const r=detectPiece(fsel.x,fsel.y);if(r){fsel=r;palette();renderAll()}},0));
 stage.addEventListener('pointerdown',e=>{if(!isIn()||space||e.button!==0||tool!=='select')return;const t=tileAt(e);if(!inside(t)||hit(t[0],t[1]))return;
   const r=detectPiece(t[0],t[1]);if(!r)return;e.stopImmediatePropagation();tool='furn';sel=null;fsel=r;fpick=null;stampOn=false;toolbar();palette();panel();renderAll()},true);
+
+/* ---------- resize a room ---------- */
+function resizeRoom(w,h,anch){snap();fnorm();const ow=M.w,oh=M.h;
+  const W=anch==='r'||anch==='l'?w:anch==='b'||anch==='t'?ow:w,H=anch==='b'||anch==='t'?h:anch==='r'||anch==='l'?oh:h;
+  const dx=(anch==='tl'||anch==='l')?W-ow:0,dy=(anch==='tl'||anch==='t')?H-oh:0;
+  const floor=floorNear(1,1,0,0);
+  const coll=[];for(let y=0;y<H;y++){let r='';for(let x=0;x<W;x++){const X=x-dx,Y=y-dy;r+=(X>=0&&Y>=0&&X<ow&&Y<oh)?M.coll[Y][X]:((x===0||y===0||x===W-1||y===H-1)?'1':'0')}coll.push(r)}
+  const mv=o=>{o.x+=dx;o.y+=dy;return o},ok=o=>o.x>=0&&o.y>=0&&o.x<W&&o.y<H;
+  M.mats=M.mats.map(mv).filter(ok);M.npcs=M.npcs.map(mv).filter(ok);M.signs=M.signs.map(mv).filter(ok);
+  M.furn=M.furn.map(f=>{mv(f);if(f._ax!==undefined){f._ax+=dx;f._ay+=dy}return f}).filter(f=>f.x>=0&&f.y>=0&&f.x+f.w<=W&&f.y+f.h<=H);
+  M.holes=M.holes.map(mv).filter(o=>o.x+o.w>0&&o.y+o.h>0&&o.x<W&&o.y<H);
+  M.ox=(M.ox||0)+dx;M.oy=(M.oy||0)+dy;M.w=W;M.h=H;M.coll=coll;
+  // new floor space: copy the room's floor tile so it doesn't show up black
+  if(floor)for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){const X=x-dx,Y=y-dy;if(X>=0&&Y>=0&&X<ow&&Y<oh)continue;M.holes.push({x,y,w:1,h:1,fx:floor[0],fy:floor[1],tiles:[floor.slice()],stamp:true})}
+  // the old black edge between the room and the new space: fill it with floor too (where the room's floor reaches it)
+  if(floor){const edge=[];if(dx>0)for(let y=1;y<H-1;y++)edge.push([dx,y,1,0]);if(W>ow&&!dx)for(let y=1;y<H-1;y++)edge.push([ow-1,y,-1,0]);if(dy>0)for(let x=1;x<W-1;x++)edge.push([x,dy,0,1]);if(H>oh&&!dy)for(let x=1;x<W-1;x++)edge.push([x,oh-1,0,-1]);
+    for(const[x,y]of edge){if(x<1||y<1||x>=W-1||y>=H-1||!picDark(x,y))continue;M.holes.push({x,y,w:1,h:1,fx:floor[0],fy:floor[1],tiles:[floor.slice()],stamp:true});M.coll[y]=M.coll[y].slice(0,x)+'0'+M.coll[y].slice(x+1)}}
+  fit();after();palette()}
 
 })();
 

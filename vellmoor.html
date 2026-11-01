@@ -11486,8 +11486,8 @@ function vmtRoomPics(M){const make=up=>{const c=document.createElement('canvas')
     const base=owLoad(OWDIR+'maps/'+M.img+(up?'_upper.png':'_lower.png'));const srcs=[...new Set((M.vmFurn||[]).map(f=>f.src))].map(s=>[s,owLoad(OWDIR+'maps/'+s+(up?'_upper.png':'_lower.png'))]);
     const lowBase=owLoad(OWDIR+'maps/'+M.img+'_lower.png');
     const done=()=>{const all=[base,lowBase,...srcs.map(x=>x[1])];if(all.some(i=>!i.complete))return;
-      c.width=base.naturalWidth||lowBase.naturalWidth||M.w*16;c.height=base.naturalHeight||lowBase.naturalHeight||M.h*16;const x=c.getContext('2d');x.imageSmoothingEnabled=false;
-      if(owOk(base))x.drawImage(base,0,0);
+      c.width=M.w*16;c.height=M.h*16;const x=c.getContext('2d');x.imageSmoothingEnabled=false;const OX=(M.vmOx||0)*16,OY=(M.vmOy||0)*16;
+      if(owOk(base))x.drawImage(base,OX,OY);
       for(const h of M.vmHoles||[])for(let j=0;j<h.h;j++)for(let i=0;i<h.w;i++){const t=h.tiles&&h.tiles[j*h.w+i]||[h.fx,h.fy];
         if(up)x.clearRect((h.x+i)*16,(h.y+j)*16,16,16);else if(owOk(lowBase))x.drawImage(lowBase,t[0]*16,t[1]*16,16,16,(h.x+i)*16,(h.y+j)*16,16,16)}
       const S=Object.fromEntries(srcs);for(const f of(M.vmFurn||[]).slice().sort((a,b)=>a.y+a.h-b.y-b.h)){const im=S[f.src];if(owOk(im))x.drawImage(im,f.sx*16,f.sy*16,f.w*16,f.h*16,f.x*16,f.y*16,f.w*16,f.h*16)}
@@ -11509,14 +11509,14 @@ function vmtApply(t){
     M.exits={};for(const m of R.mats)M.exits[m.x+','+m.y]=m.to||firstTo;
     M.signs={};for(const s of R.signs||[])M.signs[s.x+','+s.y]=vmtSign(s,M,base);
     const used=new Set();M.npcs=(R.npcs||[]).map((n,i)=>vmtNpc(n,M,key,base,used,i)).filter(Boolean);
-    M.vmHoles=R.holes||[];M.vmFurn=R.furn||[];M.vmMats=R.mats.map(m=>[m.x,m.y]);OW_MAPS[key]=M;return key}
+    M.vmHoles=R.holes||[];M.vmFurn=R.furn||[];M.vmOx=R.ox||0;M.vmOy=R.oy||0;M.vmMats=R.mats.map(m=>[m.x,m.y]);OW_MAPS[key]=M;return key}
   return null}
 function vmtLoadAll(){VMT_LIST=[];for(const t of vmtRead()){try{const k=vmtApply(t);if(k)VMT_LIST.push({key:k,name:t.name||k,at:t.at})}catch(e){console.error('test map',e)}}}
 vmtLoadAll();
 /* use the test pictures */
 {const _start=owStart;owStart=function(M){const r=_start.apply(this,arguments);const K=OWK;if(!K||!M)return r;
   if(M.vmLower){K.lower=owLoad(M.vmLower);K.upper=M.vmUpper?owLoad(M.vmUpper):null}
-  else if(M.vmHoles&&(M.vmHoles.length||M.vmFurn.length)){const p=vmtRoomPics(M);K.lower=p.lower;K.upper=p.upper}
+  else if(M.vmHoles&&(M.vmHoles.length||M.vmFurn.length||M.vmOx||M.vmOy)){const p=vmtRoomPics(M);K.lower=p.lower;K.upper=p.upper}
   if(M.vmTest&&!K._vmtNote){K._vmtNote=1;setTimeout(()=>{try{if(OWK===K&&!K.msg)owSay([`You’re walking around your test map “${M.vmTest.name||M.key}” from the map maker. Only this browser sees it.`])}catch(e){}},500)}
   return r}}
 /* if a door drops you somewhere that isn't a floor any more, land on the room's exit mat instead */
