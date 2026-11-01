@@ -729,7 +729,7 @@ const _pal2=palette;palette=function(){_pal2();if(!isIn())return;const P=$('#pal
   if(tool!=='furn')return;const L=flib();
   let h=`<button id="fCat" class="primary" style="width:100%;margin-bottom:8px">Browse all furniture…</button>`;
   h+=`<p class="muted"><b>Click</b> something in the room (a table, plant, TV, bed…) to select it, or drag a box around it. Then choose what to do with it. Click a piece to select it; drag it to move; Delete removes it. <b>Shift-click</b> to select many at once.</p>`;
-  if(fsel){const n=fAreas().length;h+=`<div class="h">${n>1?n+' pieces selected':'Selected area '+fsel.w+'×'+fsel.h}</div><p class="muted"><b>Shift-click</b> more things to add them (shift-click again to drop one). Box not quite right? <b>Shift + arrows</b> stretch it, <b>Shift + Alt + arrows</b> shrink it, arrows move it (or Alt-click a tile to stretch to it).</p><div class="list"><button id="fCut" class="primary">${n>1?'Move them (pick them up)':'Move it (pick it up)'}</button><button id="fCopy">${n>1?'Copy them':'Copy it'}</button><button id="fGone">${n>1?'Remove them':'Remove it'} (cover with floor)</button><button id="fLib">Save to my furniture</button><button id="fNo">Cancel</button></div>`}
+  if(fsel){const n=fAreas().length;h+=`<div class="h">${n>1?n+' pieces selected':'Selected area '+fsel.w+'×'+fsel.h}</div><p class="muted"><b>Shift-click</b> more things to add them (shift-click again to drop one). Box not quite right? <b>Shift + arrows</b> stretch it, <b>Shift + Alt + arrows</b> shrink it, arrows move it (or Alt-click a tile to stretch to it).</p><div class="list"><button id="fCut" class="primary">${n>1?'Move them (pick them up)':'Move it (pick it up)'}</button><button id="fCopy">${n>1?'Copy them':'Copy it'}</button><button id="fGone">${n>1?'Remove them':'Remove it'} (cover with floor)</button><button id="fLib">Save to my furniture</button><button id="fCopyArea">Copy area (Ctrl+C)</button><button id="fNo">Cancel</button></div>`}
   h+=`<div class="h">Touch up the floor</div><div class="row"><button id="fStamp" class="${stampOn?'on':''}">${stampOn?(stampSrc?'Stamping… (click to stop)':'Click a tile to copy…'):'Stamp brush'}</button>${stampOn&&stampSrc?'<button id="fStampNew">Copy another tile</button>':''}</div><p class="muted">Copy any tile of the picture (floor, rug, wall) and paint it over spots that don’t look right.</p>`;
   h+=`<div class="h">Floor for empty spots</div><div class="row"><button id="fPick" class="${floorPicking?'on':''}">${floorPicking?'Click a floor tile…':'Pick floor tile'}</button>${floorPick?`<button id="fAuto">Auto</button>`:''}</div><p class="muted">${floorPick?`Using the tile at ${floorPick[0]}, ${floorPick[1]}.`:'Auto: each empty tile copies the floor right next to it.'}${(M.holes||[]).length?' <a href="#" id="fApply">Use it for all empty spots</a>':''}</p>`;
   h+=`<div class="h">My furniture</div>`+(L.length?`<div class="kitgrid">${L.map((p,i)=>`<button data-fl="${i}" class="${fpick&&fpick._i===i?'on':''}" title="Click, then click in the room to place"><canvas data-flc="${i}"></canvas>${esc(p.name||nice(p.src))}</button>`).join('')}</div><p class="muted">Pick one, then click in the room to place it. It works in any room.</p>`:`<p class="muted">Empty. Select something and press “Save to my furniture” to keep it for any room.</p>`);
@@ -740,6 +740,7 @@ const _pal2=palette;palette=function(){_pal2();if(!isIn())return;const P=$('#pal
   if(g('#fGone'))g('#fGone').onclick=()=>{snap();fnorm();for(const r of fAreas()){const[fx,fy]=floorNear(r.x,r.y,r.w,r.h);M.holes.push({x:r.x,y:r.y,w:r.w,h:r.h,fx,fy,tiles:fillFor(r.x,r.y,r.w,r.h)});for(let j=0;j<r.h;j++)for(let i=0;i<r.w;i++)setWall(r.x+i,r.y+j,false)}fsel=null;fextra=[];after();palette()};
   if(g('#fLib'))g('#fLib').onclick=()=>{const a=flib(),A=fAreas(),nm=(prompt(A.length>1?'Name these pieces':'Name this piece','Furniture')||'Furniture').slice(0,20);A.forEach((r,i)=>a.push({src:M.img,sx:r.x-(M.ox||0),sy:r.y-(M.oy||0),w:r.w,h:r.h,name:A.length>1?nm+' '+(i+1):nm}));flibSave(a);palette()};
   if(g('#fCat'))g('#fCat').onclick=openCatalog;
+  if(g('#fCopyArea'))g('#fCopyArea').onclick=()=>{const A=fAreas();copyRect(A[A.length-1]);fsel=null;fextra=[];tool='tiles';toolbar();palette();renderAll()};
   if(g('#fNo'))g('#fNo').onclick=()=>{fsel=null;fextra=[];renderAll();palette()};
   if(g('#fStamp'))g('#fStamp').onclick=()=>{stampOn=!stampOn;if(!stampOn)stampSrc=null;fsel=null;fpick=null;palette();renderAll()};
   if(g('#fStampNew'))g('#fStampNew').onclick=()=>{stampSrc=null;palette()};
@@ -793,6 +794,7 @@ window.addEventListener('keydown',e=>{if(!isIn()||tool!=='furn'||!fsel||e.target
   else if(e.shiftKey&&e.altKey){if(d[0]<0&&r.w>1)r.w--;if(d[0]>0&&r.w>1){r.x++;r.w--}if(d[1]<0&&r.h>1)r.h--;if(d[1]>0&&r.h>1){r.y++;r.h--}}
   else{r.x=Math.max(0,Math.min(M.w-r.w,r.x+d[0]));r.y=Math.max(0,Math.min(M.h-r.h,r.y+d[1]))}
   palette();renderAll()},true);
+window.addEventListener('keydown',e=>{if(isIn()&&e.key==='Escape'&&tool==='tiles'&&tsrc&&tsrc.cells){tsrc=null;tcbox=null;tcopy=false;palette();renderAll();return}});
 window.addEventListener('keydown',e=>{if(isIn()&&e.key==='Escape'&&(fsel||fpick)){fsel=null;fpick=null;palette();renderAll()}});
 
 /* ---------- Send to game (test in this browser) ---------- */
@@ -932,7 +934,15 @@ let tcopy=false,tcbox=null;
 function cellAt(x,y){fnorm();const wall=M.coll[y]&&M.coll[y][x]!=='0';
   for(let n=M.holes.length-1;n>=0;n--){const h=M.holes[n];if(x>=h.x&&x<h.x+h.w&&y>=h.y&&y<h.y+h.h){const t=h.tiles&&h.tiles[(y-h.y)*h.w+(x-h.x)]||[h.fx,h.fy];return{src:h.src||M.img,t:t.slice(),wall}}}
   if(!inPic(x,y))return null;return{src:M.img,t:[x-(M.ox||0),y-(M.oy||0)],wall}}
-function copyRect(r){const cells=[];for(let j=0;j<r.h;j++)for(let i=0;i<r.w;i++)cells.push(cellAt(r.x+i,r.y+j));tsrc={img:null,x:0,y:0,w:r.w,h:r.h,cells};tcopy=false;tcbox=null}
+function copyRect(r){fnorm();const cells=[];for(let j=0;j<r.h;j++)for(let i=0;i<r.w;i++)cells.push(cellAt(r.x+i,r.y+j));
+  const inR=(x,y)=>x>=r.x&&x<r.x+r.w&&y>=r.y&&y<r.y+r.h,rel=o=>Object.assign(JSON.parse(JSON.stringify(o)),{x:o.x-r.x,y:o.y-r.y});
+  const extra={furn:M.furn.filter(f=>f.x>=r.x&&f.y>=r.y&&f.x+f.w<=r.x+r.w&&f.y+f.h<=r.y+r.h).map(f=>{const o=rel(f);delete o._ax;delete o._ay;delete o._b;return o}),
+    signs:M.signs.filter(s=>inR(s.x,s.y)&&!s.builtin).map(rel),npcs:M.npcs.filter(n=>inR(n.x,n.y)&&n.kind!=='builtin').map(n=>{const o=rel(n);delete o.id;delete o.ox;delete o.oy;return o})};
+  tsrc={img:null,x:0,y:0,w:r.w,h:r.h,cells,extra};tcopy=false;tcbox=null}
+function pasteExtras(x0,y0){const E=tsrc&&tsrc.extra;if(!E)return;fnorm();const ok=(x,y)=>x>=0&&y>=0&&x<M.w&&y<M.h;
+  for(const f of E.furn){const n=Object.assign({},f,{x:f.x+x0,y:f.y+y0});if(n.x+n.w<=M.w&&n.y+n.h<=M.h&&ok(n.x,n.y))M.furn.push(n)}fSync();
+  for(const s of E.signs){const x=s.x+x0,y=s.y+y0;if(!ok(x,y))continue;M.signs=M.signs.filter(o=>!(o.x===x&&o.y===y));M.signs.push(Object.assign(JSON.parse(JSON.stringify(s)),{x,y}));setWall(x,y,true)}
+  for(const n of E.npcs){const x=n.x+x0,y=n.y+y0;if(!ok(x,y)||M.npcs.some(o=>o.x===x&&o.y===y))continue;M.npcs.push(Object.assign(JSON.parse(JSON.stringify(n)),{x,y}))}}
 function placeCell(x,y,c){if(!c||!inside([x,y]))return;putTile(x,y,c.t,c.src);setWall(x,y,!!c.wall)}
 function paintTileAt(p){if(!inside(p)||!tsrc||!fdrag)return;const k=p+'';if(fdrag.seen.has(k))return;fdrag.seen.add(k);
   if(tsrc.cells){const i=((p[0]-fdrag.x0)%tsrc.w+tsrc.w)%tsrc.w,j=((p[1]-fdrag.y0)%tsrc.h+tsrc.h)%tsrc.h;placeCell(p[0],p[1],tsrc.cells[j*tsrc.w+i]);renderAll();return}
@@ -959,7 +969,7 @@ const _pal3=palette;palette=function(){_pal3();if(!isIn())return;const P=$('#pal
    <div style="margin-top:6px;max-height:340px;overflow:auto;border:1px solid var(--line);border-radius:6px;background:#000"><canvas id="tCv" style="image-rendering:pixelated;cursor:crosshair;display:block;touch-action:none"></canvas></div>
    <p class="muted">${tsrc?`Picked ${tsrc.w}×${tsrc.h} tile${tsrc.w*tsrc.h>1?'s':''}. `:''}Click a tile in the picture, or drag to pick a pattern (like a 2×2 floor). Then paint it in the room.</p>
    <div class="h">Copy from the room</div><div class="row"><button id="tCopy" class="${tcopy?'on':''}">${tcopy?'Drag over the room…':'Copy from the room'}</button></div>
-   <p class="muted">${tsrc&&tsrc.cells?`Copied ${tsrc.w}×${tsrc.h} tiles (walls included). Click to paste the block, drag to paint it as a pattern.`:'Copies tiles as they look now, walls included. Shortcut: select an area with Furniture and press Ctrl+C, then Ctrl+V.'}</p>`;
+   <p class="muted">${tsrc&&tsrc.cells?`Copied a ${tsrc.w}×${tsrc.h} area${tsrc.extra&&(tsrc.extra.furn.length+tsrc.extra.signs.length+tsrc.extra.npcs.length)?' (with furniture, signs and people in it)':''}. <b>Click</b> to paste it; click again to paste more copies. Drag to paint just the tiles as a pattern. Esc stops.`:'Copies an area as it looks now: tiles, walls, furniture, signs and people. Shortcut: drag a box with the Furniture tool, Ctrl+C, then Ctrl+V.'}</p>`;
   P.querySelectorAll('[data-tm]').forEach(b=>b.onclick=()=>{tmode=b.dataset.tm;palette()});
   $('#tCopy').onclick=()=>{tcopy=!tcopy;palette()};
   $('#tPic').onchange=e=>{tpic=e.target.value;palette()};
@@ -973,7 +983,7 @@ const _pal3=palette;palette=function(){_pal3();if(!isIn())return;const P=$('#pal
 stage.addEventListener('pointerdown',e=>{if(!isIn()||space||e.button!==0||(tool!=='tiles'&&tool!=='erase'))return;const t=tileAt(e);e.stopImmediatePropagation();try{stage.setPointerCapture(e.pointerId)}catch(_){}
   if(tool==='tiles'&&tcopy){tcbox=[t,t];fdrag={tcopy:true};renderAll();return}
   if(tool==='tiles'){if(!tsrc){alert('Pick a tile first: click one in the picture on the left, or press “Copy from the room”.');return}snap();fdrag={tiles:true,x0:t[0],y0:t[1],seen:new Set()};tsrc.ax=t[0];tsrc.ay=t[1];
-    if(tsrc.cells){for(let j=0;j<tsrc.h;j++)for(let i=0;i<tsrc.w;i++){fdrag.seen.add((t[0]+i)+','+(t[1]+j));placeCell(t[0]+i,t[1]+j,tsrc.cells[j*tsrc.w+i])}renderAll();return}
+    if(tsrc.cells){for(let j=0;j<tsrc.h;j++)for(let i=0;i<tsrc.w;i++){fdrag.seen.add((t[0]+i)+','+(t[1]+j));placeCell(t[0]+i,t[1]+j,tsrc.cells[j*tsrc.w+i])}pasteExtras(t[0],t[1]);renderAll();return}
     paintTileAt(t);return}
   snap();fdrag={erase:true,seen:new Set()};eraseAt(t)},true);
 stage.addEventListener('pointermove',e=>{if(!isIn()||!fdrag)return;const t=tileAt(e);if(fdrag.tcopy){tcbox[1]=[Math.max(0,Math.min(M.w-1,t[0])),Math.max(0,Math.min(M.h-1,t[1]))];renderAll();return}if(fdrag.tiles)paintTileAt(t);else if(fdrag.erase)eraseAt(t)});
@@ -988,6 +998,7 @@ window.addEventListener('keydown',e=>{if(!isIn()||tool!=='furn'||!fsel||e.target
   if(tcbox){const[a,b]=tcbox;const x0=Math.min(a[0],b[0]),y0=Math.min(a[1],b[1]),w=Math.abs(a[0]-b[0])+1,h=Math.abs(a[1]-b[1])+1;ctx.fillStyle='rgba(61,255,122,.2)';ctx.fillRect(x0*16,y0*16,w*16,h*16);ctx.strokeStyle='#3dff7a';ctx.lineWidth=2/zoom;ctx.strokeRect(x0*16,y0*16,w*16,h*16);return}
   if(!tsrc||!hover||fdrag||tcopy)return;ctx.globalAlpha=.6;
   for(let j=0;j<tsrc.h;j++)for(let i=0;i<tsrc.w;i++){const c=tsrc.cells?tsrc.cells[j*tsrc.w+i]:{src:tsrc.img,t:[tsrc.x+i,tsrc.y+j]};if(!c)continue;const im=roomImg(c.src);if(im&&im.ok)ctx.drawImage(im.lower,c.t[0]*16,c.t[1]*16,16,16,(hover[0]+i)*16,(hover[1]+j)*16,16,16)}
+  if(tsrc.extra)for(const f of tsrc.extra.furn){const im=roomImg(f.src);if(im&&im.ok)ctx.drawImage(im.lower,f.sx*16,f.sy*16,f.w*16,f.h*16,(hover[0]+f.x)*16,(hover[1]+f.y)*16,f.w*16,f.h*16)}
   ctx.globalAlpha=1;ctx.strokeStyle='#3dff7a';ctx.lineWidth=1.5/zoom;ctx.strokeRect(hover[0]*16,hover[1]*16,tsrc.w*16,tsrc.h*16)}}
 /* Ctrl+C / Ctrl+V */
 window.addEventListener('keydown',e=>{if(!isIn()||!(e.ctrlKey||e.metaKey)||e.target.matches('input,textarea,select'))return;const k=e.key.toLowerCase();
