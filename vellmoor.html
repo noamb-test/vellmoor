@@ -11535,6 +11535,83 @@ vmtLoadAll();
 {const _opt=hgOptions;hgOptions=function(){_opt();if(!VMT_LIST.length||!PTU)return;const w=PTU.el.querySelector('.hgOpt');if(!w)return;
   const b=document.createElement('button');b.textContent=`TEST MAPS: ${VMT_LIST.length} — REMOVE`;b.onclick=e=>{e.stopPropagation();if(!confirm('Remove the test maps you sent from the map maker? The game goes back to its own maps.'))return;vmtClear();location.reload()};w.appendChild(b)}}
 
+/* ============ FIRST PARTNER: Professor Thessaly's questions at the Pokémon Center ============
+   After the prologue you wake up in the Hearthvale Pokémon Center. Thessaly is waiting by the door and asks her
+   questions right there; your answers pick one of the 18 Pokémon from her lab tables (one for every type). */
+const STARTER18=['n001','n004','n007','n133','n025','n023','n821','n280','n736','n782','n551','n328','n679','n175','n092','n074','n056','n363'];
+Object.assign(PERSONALITY,{
+ grass:   {name:'Gentle',       nature:'Gentle', starter:'n001',desc:'You notice when someone is left out, and you fix it quietly. You would rather help something grow than win, though you are tougher than you look.'},
+ fire:    {name:'Bold',         nature:'Brave',  starter:'n004',desc:'You charge in first and ask questions later. When something matters you don’t hesitate, and people follow your lead.'},
+ water:   {name:'Calm',         nature:'Calm',   starter:'n007',desc:'You go with the flow and rarely lose your temper. Friends come to you when they need a steady voice.'},
+ normal:  {name:'Friendly',     nature:'Docile', starter:'n133',desc:'You get along with almost everyone. You adapt to whatever the day brings, and nobody stays a stranger to you for long.'},
+ electric:{name:'Quick',        nature:'Hasty',  starter:'n025',desc:'You think fast, move faster and get restless if you sit still. Your ideas come in bursts, and one of them is usually brilliant.'},
+ poison:  {name:'Crafty',       nature:'Naughty',starter:'n023',desc:'You see the angles other people miss. You don’t pick fights, but anyone who starts one with you regrets it.'},
+ flying:  {name:'Free-spirited',nature:'Naive',  starter:'n821',desc:'You hate being fenced in. Give you a horizon and a reason to chase it, and you are already halfway there.'},
+ psychic: {name:'Thoughtful',   nature:'Modest', starter:'n280',desc:'You think before you speak and you read people well. You often know what someone needs before they say it.'},
+ bug:     {name:'Hardworking',  nature:'Serious',starter:'n736',desc:'You keep at it long after others quit. Small steps add up, and you are proof of it.'},
+ dragon:  {name:'Proud',        nature:'Adamant',starter:'n782',desc:'You aim high and hold yourself to it. You don’t back down, and you grow a little stronger every time you’re tested.'},
+ dark:    {name:'Mysterious',   nature:'Sassy',  starter:'n551',desc:'You keep your own counsel and do things your own way. People can’t quite figure you out, and you like it that way.'},
+ ground:  {name:'Steady',       nature:'Relaxed',starter:'n328',desc:'You don’t rattle easily. You plan ahead, keep your promises and outlast problems that wear other people down.'},
+ steel:   {name:'Loyal',        nature:'Careful',starter:'n679',desc:'Once you pick your people, you stand by them. You are careful, dependable and very hard to break.'},
+ fairy:   {name:'Cheerful',     nature:'Jolly',  starter:'n175',desc:'You bring the light into a room. You believe in people, and somehow that makes them better.'},
+ ghost:   {name:'Curious',      nature:'Quiet',  starter:'n092',desc:'You’re drawn to mysteries and the blank parts of the map. You keep a few secrets, and you notice everyone else’s.'},
+ rock:    {name:'Stubborn',     nature:'Impish', starter:'n074',desc:'Once you make up your mind, nothing moves you. That makes you a rock for your friends and a wall for everyone else.'},
+ fighting:{name:'Determined',   nature:'Hardy',  starter:'n056',desc:'You meet problems head on. Falling down only means getting back up, and you never stay down long.'},
+ ice:     {name:'Cool',         nature:'Mild',   starter:'n363',desc:'You keep your head when things heat up. Quiet on the outside, sharp on the inside, and never in a rush.'},
+});
+const QUIZ18=[
+ {q:'A storm knocks out the lights in your village. What do you do first?',a:[['Grab a lantern and check on the neighbors.',{grass:2,fairy:1}],['Go outside to watch the lightning.',{electric:2,flying:1}],['Make tea and wait it out.',{water:2,ice:1}],['Start fixing whatever broke.',{steel:2,bug:1}],['Sit in the dark and listen.',{ghost:2,dark:1}]]},
+ {q:'Someone cuts in front of you in a long line. You…',a:[['Tell them, loudly, where the line ends.',{fire:2,fighting:1}],['Let it go. It’s not worth it.',{water:2,normal:1}],['Stare at them until they leave.',{dark:2,ice:1}],['Start chatting and learn their life story.',{normal:2,psychic:1}]]},
+ {q:'Which sounds like the best afternoon?',a:[['Racing a friend up a hill.',{electric:2,fighting:1}],['Lying in tall grass, watching clouds.',{grass:2,flying:1}],['Exploring an abandoned building.',{ghost:2,dark:1}],['Building something that will last.',{rock:2,steel:1}],['Reading by a frosty window.',{ice:2,psychic:1}]]},
+ {q:'A friend is upset but won’t say why. You…',a:[['Sit with them until they’re ready.',{fairy:2,grass:1}],['Work out what happened on your own.',{psychic:2,ghost:1}],['Drag them out to do something fun.',{normal:2,electric:1}],['Make sure whoever upset them regrets it.',{poison:2,dragon:1}]]},
+ {q:'You find a map with an X on it.',a:[['Go now. Right now.',{flying:2,fire:1}],['Pack for every possible problem first.',{ground:2,steel:1}],['Bring a friend along.',{fairy:2,normal:1}],['Find out who drew it.',{psychic:1,ghost:1,dark:1}],['Start digging with your bare hands.',{bug:2,ground:1}]]},
+ {q:'Your friends would describe you as…',a:[['The one who gets things started.',{fire:2,dragon:1}],['The one who keeps everyone calm.',{water:2,ice:1}],['The one who always shows up.',{rock:2,steel:1}],['The one with the strange ideas.',{psychic:2,electric:1}],['The one who never gives up.',{fighting:2,bug:1}]]},
+ {q:'You have to cross a rickety rope bridge.',a:[['Run across before you can think.',{electric:2,fire:1}],['Test every plank.',{ground:1,rock:1,steel:1}],['Breathe and walk at your own pace.',{ice:2,water:1}],['Wish you could just fly over.',{flying:2}]]},
+ {q:'You win a big prize. What do you do with it?',a:[['Share it with everyone who helped.',{fairy:2,grass:1}],['Save it for something important.',{ground:2}],['Spend it on an adventure.',{flying:1,dragon:1}],['Train harder to win the next one.',{fighting:2}],['Keep it a secret.',{dark:2,poison:1}]]},
+ {q:'A wild Pokémon blocks your path and growls.',a:[['Growl right back.',{dragon:2,fighting:1}],['Back away and speak softly.',{grass:1,fairy:1,water:1}],['Watch it closely. Why is it angry?',{bug:2,psychic:1}],['Stand perfectly still.',{rock:2,ice:1}],['Offer it a berry.',{normal:2}]]},
+ {q:'Pick a place to live.',a:[['A lighthouse by the sea.',{water:2}],['A treehouse in a quiet forest.',{bug:2,grass:1}],['A tower full of old books.',{psychic:2,ghost:1}],['A mountain cave with a view.',{dragon:1,rock:1,ground:1}],['A cabin in the snow.',{ice:2}]]},
+ {q:'What is your secret talent?',a:[['Knowing which plants heal and which ones sting.',{poison:2,grass:1}],['Never getting lost.',{flying:1,ground:1}],['Telling when someone is lying.',{dark:1,psychic:1}],['Making anyone smile.',{fairy:2}],['Lifting heavy things.',{fighting:1,rock:1}]]},
+ {q:'A stranger at the inn tells a ghost story. You…',a:[['Ask where it happened so you can go.',{ghost:2}],['Tell an even scarier one.',{dark:1,dragon:1}],['Check the door is locked tonight.',{steel:1,normal:1}],['Laugh. It’s obviously made up.',{electric:1,fighting:1}]]},
+ {q:'How do you handle a big problem?',a:[['Charge straight at it.',{fire:1,fighting:1}],['Chip away at it a little every day.',{bug:1,ground:1}],['Find a clever way around it.',{poison:2,electric:1}],['Ask for help from people I trust.',{normal:1,steel:1}],['Stay cool and wait for the right moment.',{ice:1,water:1}]]},
+ {q:'Last one. Your heart is pounding. Why?',a:[['I’m about to do something brave.',{fire:2,dragon:1}],['I just ran a very long way.',{electric:1,fighting:1}],['I found something no one has seen.',{ghost:1,bug:1,psychic:1}],['Someone I care about needs me.',{fairy:1,water:1,grass:1}],['Something dangerous is nearby.',{dark:1,poison:1,ice:1}]]},
+];
+const QKEYS18=['grass','fire','water','normal','electric','poison','flying','psychic','bug','dragon','dark','ground','steel','fairy','ghost','rock','fighting','ice'];
+/* after the prologue: wake up in the Pokémon Center */
+function vmStartCenter(){state.needStarter=true;state.loc=0;state.ow={map:'hv_center',x:8,y:19,dir:'up'};OW_LASTLOC=0;OW_MENU=false;save();mapScreen()}
+quizScreen=function(){vmStartCenter()};
+/* Thessaly waits by the door */
+{const M=OW_MAPS.hv_center;if(M){M.npcs=M.npcs.concat([{id:'prof_quiz',sheet:'scientist_f',x:8,y:17,dir:'down',show:()=>!!state.needStarter,
+  say:()=>['Thessaly: There you are! Ready for my questions?'],then:()=>profQuiz()}])}}
+function profQuiz(){const qs=[...QUIZ18.slice(0,-1)].sort(()=>Math.random()-.5).slice(0,7).concat([QUIZ18[QUIZ18.length-1]]),score={};let i=0;
+  const ask=()=>{const Q=qs[i];owChoose(Q.a.map(a=>a[0]),k=>{for(const[t,v]of Object.entries(Q.a[k][1]))score[t]=(score[t]||0)+v;i++;if(i<qs.length)setTimeout(ask,60);else setTimeout(result,60)});
+    const K=OWK;if(!K||!K.choose)return;const d=K.choose.draw;K.choose.draw=()=>{d();const c=document.querySelector('#owMsg .owChoice');if(c&&!c.querySelector('.owQ')){const p=document.createElement('p');p.className='owQ';p.innerHTML=`<span>Question ${i+1} of ${qs.length}</span>${Q.q}`;c.prepend(p)}};K.choose.draw()};
+  const result=()=>{const top=Math.max(...QKEYS18.map(k=>score[k]||0)),best=QKEYS18.filter(k=>(score[k]||0)===top),pk=pick(best),Pp=PERSONALITY[pk],sp=RZ(Pp.starter,'s');
+    state.personality=pk;state.quizPick=sp;save();
+    owSay([`Thessaly: Hmm… I see. You seem to be the ${Pp.name} type.`,Pp.desc,`I think ${SP[sp].n} would suit you. It would hatch with a ${Pp.nature} nature, just like you.`],
+      ()=>owChoose([`Take ${SP[sp].n}`,'Choose a different Pokémon','Ask me again'],c=>{
+        if(c===0){owStop();pickStarter(sp)}else if(c===1){owStop();starterScreen()}else setTimeout(()=>owSay(['Thessaly: Of course. Let’s start over.'],ask0),60)}))};
+  const ask0=()=>{i=0;for(const k in score)delete score[k];ask()};
+  owSay([`Thessaly: ${P().name}! You’re awake. I hope the bed here was comfortable.`,'Before you choose your first partner, I’d like to ask you a few questions.','There are no wrong answers. Just tell me what feels true.'],ask)}
+/* start the questions as soon as you walk in */
+{const _st=owStart;owStart=function(M){const r=_st.apply(this,arguments);const K=OWK;
+  if(K&&M&&M.key==='hv_center'&&state.needStarter&&!state.party.length)setTimeout(()=>{if(OWK===K&&!K.msg&&!K.choose)profQuiz()},600);return r}}
+/* leaving before choosing: Thessaly calls you back */
+{const _w=owWarp;owWarp=function(map,x,y,dir){if(state.needStarter&&!state.party.length&&state.ow&&state.ow.map==='hv_center'&&map!=='hv_center'){return owSay(['Thessaly: Wait! You can’t head out without a partner.'],()=>profQuiz())}return _w.apply(this,arguments)}}
+/* choosing a partner (any way) ends the questions */
+{const _pk=pickStarter;pickStarter=function(id){state.needStarter=false;return _pk.apply(this,arguments)}}
+/* "Choose a different Pokémon": all 18 from the lab tables */
+starterScreen=function(){const ids=STARTER18.map(id=>RZ(id,'s'));const rec=state.quizPick&&state.personality&&PERSONALITY[state.personality];
+  app().innerHTML=`<div class="panel"><p class="label">Hearthvale · Pokémon Center</p><h2 style="font-size:38px;margin-top:4px">Pick your first companion</h2><p class="muted" style="margin-top:6px;max-width:62ch">“These are the eighteen from my lab tables, one for every type. Whichever you choose will grow with you. My other student, Corvin, picks right after you.”</p>
+  <div class="grid3 s18">${ids.map(id=>`<button class="starter ${state.quizPick===id?'rec':''}" data-id="${id}">${state.quizPick===id&&rec?`<span class="recTag">Your match · ${rec.name} type</span>`:''}<div class="art">${sprite(id)}</div><div class="row"><h3>${SP[id].n}</h3>${chips(SP[id].types)}</div>
+    <p class="mono muted" style="font-size:12px">Base stat total ${STATK.reduce((a,k)=>a+baseOf(id)[k],0)}</p></button>`).join('')}</div>`;
+  document.querySelectorAll('.starter').forEach(b=>b.onclick=()=>pickStarter(b.dataset.id))};
+/* Corvin picks a partner that beats yours */
+{const _ace=rzRivalAce;rzRivalAce=function(sp){const r=state.rando;if(r&&r.starters)return _ace(sp);
+  const mine=SP[sp].types,score=id=>mine.reduce((m,t)=>m*((EFF[SP[id].types[0]]||{})[t]??1),1);
+  const pool=STARTER18.filter(id=>id!==sp&&SP[id]).sort((a,b)=>score(b)-score(a));return pool[0]||_ace(sp)}}
+{const st=document.createElement('style');st.textContent=`.owChoice .owQ{margin:0 0 6px;font-weight:700;line-height:1.3}.owChoice .owQ span{display:block;font-size:.75em;opacity:.7;font-weight:400}
+.grid3.s18{grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}.grid3.s18 .starter .art{height:96px}`;document.head.appendChild(st)}
+
 buildPixelCache().then(npcInit,npcInit).then(titleScreen,titleScreen);
 </script>
 
