@@ -11612,6 +11612,43 @@ starterScreen=function(){const ids=STARTER18.map(id=>RZ(id,'s'));const rec=state
 {const st=document.createElement('style');st.textContent=`.owChoice .owQ{margin:0 0 6px;font-weight:700;line-height:1.3}.owChoice .owQ span{display:block;font-size:.75em;opacity:.7;font-weight:400}
 .grid3.s18{grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}.grid3.s18 .starter .art{height:96px}`;document.head.appendChild(st)}
 
+/* ============ LAB: more people, and picking a partner from the tables ============ */
+const pad3=n=>String(n).padStart(3,'0');
+/* remember which Pokémon you took, so it leaves the lab table */
+{const _pk2=pickStarter;pickStarter=function(id){state.starterSp=id;return _pk2.apply(this,arguments)}}
+const tableTaken=mon=>{const sid='n'+pad3(mon);return!!state.starterSp&&(state.starterSp===sid||state.starterSp===RZ(sid,'s'))};
+function labSetup(){const M=OW_MAPS.hv_lab;if(!M||!M.npcs)return;
+  for(const n of M.npcs){
+    if(n.mon&&!n._table){n._table=true;const sid='n'+pad3(n.mon);
+      n.show=()=>!tableTaken(n.mon);
+      n.say=()=>{const id=RZ(sid,'s'),s=SP[id];if(!state.party.length)return[`It’s ${s?s.n:'a Pokémon'}. It looks up at you hopefully.`];return[`${s?s.n:'Pokémon'}: ${['Mew','Pii','Kyuu','Gyaoo','Rrrr'][n.mon%5]}!`,`It’s one of Professor Thessaly’s research Pokémon.`]};
+      n.then=()=>{if(state.party.length)return;const id=RZ(sid,'s');owChoose([`Choose ${SP[id].n}`,'Not yet'],c=>{if(c===0){owStop();pickStarter(id)}})}}
+    if(n.sheet==='scientist_f'&&!n._prof){n._prof=true;const say0=n.say,then0=n.then;
+      n.say=()=>state.party.length?say0():[`Thessaly: ${P().name}! You haven’t chosen a partner yet.`,'Every Pokémon on these tables is looking for a trainer. Talk to the one you like, or I can ask you my questions and suggest one.'];
+      n.then=()=>{if(state.party.length)return then0&&then0();owChoose(['Ask me your questions','I’ll pick from the tables'],c=>{if(c===0)profQuiz()})}}}}
+labSetup();
+/* the lab's new people (added to the room made in the map maker) */
+{const M=OW_MAPS.hv_lab;if(M&&M.vmTest){const add=[
+  {id:'lab_guide',sheet:'scientist_m',x:5,y:8,dir:'down',L:[
+    'Want to know my favorite field trick? It’s called Look around.',
+    'Open the MENU and pick LOOK AROUND. You’ll explore wherever you are, in town or out in the wilds.',
+    'Most of the time a wild Pokémon jumps out. Sometimes a whole pack of them, or two at once!',
+    'Other times a traveling trainer wants a battle. And now and then something unexpected happens: someone needs help, you find an item, a strange visitor turns up…',
+    'Those random events use your lead Pokémon’s skill. Roll well and good things happen. Just heal up first, since you can’t look around with a fainted team.']},
+  {id:'lab_types',sheet:'scientist_f',x:11,y:8,dir:'left',L:['One Pokémon for every type sits on these tables. Eighteen in all!','Fire melts Grass, Water puts out Fire, Grass drinks up Water. Learn the rest by heart and battles get much easier.']},
+  {id:'lab_dex',sheet:'gentleman',x:7,y:12,dir:'down',L:['Your Pokédex fills in as you meet Pokémon. Just seeing one counts.','Catch it, and the Pokédex shows you where it lives and how it grows.']},
+  {id:'lab_kid',sheet:'school_kid_m',x:3,y:18,dir:'up',wander:true,L:['I come here every day after school to watch the Pokémon on the tables.','Someday I’ll get to pick one too!']},
+  {id:'lab_heal',sheet:'middle_aged_woman',x:13,y:17,dir:'left',L:['If your Pokémon get tired, the Pokémon Center down the road heals them for free.','Talk to the nurse at the counter, then you’re ready to go again.']},
+];
+  for(const a of add){if(M.npcs.some(n=>n.id===a.id||(n.x===a.x&&n.y===a.y)))continue;if(M.coll[a.y]&&M.coll[a.y][a.x]!=='0')continue;const L=a.L;M.npcs.push({id:a.id,sheet:a.sheet,x:a.x,y:a.y,dir:a.dir,wander:!!a.wander,say:()=>L.slice()})}}}
+/* leaving the Pokémon Center before choosing: Thessaly points you to her lab */
+{const _w2=owWarp;owWarp=function(map,x,y,dir){if(state.needStarter&&!state.party.length&&state.ow&&state.ow.map==='hv_center'&&map!=='hv_center'){const K=OWK;
+    if(K&&!K._labHint){K._labHint=true;return owSay(['Thessaly: Not ready to answer yet? That’s all right.','You can also come to my lab, north-east of here, and pick a Pokémon from my tables.'],()=>owWarp(map,x,y,dir))}
+    state.needStarter=false;save()}
+  return _w2.apply(this,arguments)}}
+/* the questions start by themselves only the first time you wake up in the Center */
+{const _st2=owStart;owStart=function(M){if(M&&M.key==='hv_center'&&state.centerAsked&&state.needStarter){state.needStarter=false}const r=_st2.apply(this,arguments);if(M&&M.key==='hv_center'&&!state.party.length)state.centerAsked=true;return r}}
+
 buildPixelCache().then(npcInit,npcInit).then(titleScreen,titleScreen);
 </script>
 
