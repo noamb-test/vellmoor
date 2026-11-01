@@ -320,7 +320,7 @@ function newPerson(t){const b={x:t[0],y:t[1],dir:'down'};
   if(personKind==='item')return Object.assign(b,{kind:'item',item:'potion',qty:1});
   if(personKind==='mon')return Object.assign(b,{kind:'mon',mon:25,sheet:'youngster'});
   return Object.assign(b,{kind:'person',sheet:'lass',wander:false,say:['Hello there!']})}
-function after(){renderAll();panel();check();try{save()}catch(e){}}
+function after(){for(const f of[renderAll,panel,check,save]){try{f()}catch(e){console.error(e)}}}
 /* ---------- right panel ---------- */
 function esc(s){return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 function opts(list,v){return list.map(([k,l])=>`<option value="${esc(k)}" ${String(k)===String(v)?'selected':''}>${esc(l)}</option>`).join('')}
@@ -1052,6 +1052,10 @@ stage.addEventListener('pointermove',e=>{if(!isIn()||!mdrag)return;const t=tileA
 window.addEventListener('pointerup',()=>{if(!isIn()||!mdrag)return;mdrag=null;fSync();after()});
 {const _fm2=furnMarks;furnMarks=function(){_fm2();if(!isIn()||tool!=='move')return;ctx.lineWidth=1.5/zoom;ctx.setLineDash([4/zoom,3/zoom]);ctx.strokeStyle='rgba(255,207,92,.8)';for(const f of M.furn)ctx.strokeRect(f.x*16,f.y*16,f.w*16,f.h*16);ctx.setLineDash([]);
   if(!mdrag&&hover&&inside(hover)){const h=hit(hover[0],hover[1]);ctx.strokeStyle='#6fb3ff';ctx.lineWidth=2/zoom;if(h&&h.t==='f'){const f=M.furn[h.i];ctx.strokeRect(f.x*16,f.y*16,f.w*16,f.h*16)}else{const k=hover+'';if(furnMarks._k!==k){furnMarks._k=k;furnMarks._r=detectPiece(hover[0],hover[1])}const r=furnMarks._r;if(r)ctx.strokeRect(r.x*16,r.y*16,r.w*16,r.h*16)}}}}
+
+/* the right panel never goes blank: if something fails, say what and offer a retry */
+{const _pp=panel;panel=function(){try{return _pp.apply(this,arguments)}catch(e){console.error(e);const R=$('#right');if(R)R.innerHTML=`<div class="card"><h3>The panel hit a problem</h3><p class="muted">${esc(String(e&&e.message||e))}</p><div class="row"><button id="pRetry">Try again</button><button id="pDesel">Clear selection</button></div><p class="muted">Please send Claude a screenshot of this.</p></div>`;
+  const r=$('#pRetry');if(r)r.onclick=()=>panel();const d=$('#pDesel');if(d)d.onclick=()=>{sel=null;try{mset.clear()}catch(_){}panel();renderAll()}}}}
 
 })();
 
