@@ -641,6 +641,11 @@ const oSave=$('#bSave').onclick;$('#bSave').onclick=()=>{if(!isIn())return oSave
 function roomForBuilding(b){if(typeof RD==='undefined')return null;const k=V.kits[b.kit]||{},g=b.goes||{};const area=M.area;
   const d=M.doors&&M.doors[b.name];
   if((g.type==='keep'||!g.type)&&d&&d.t==='warp'&&RD.rooms[d.map])return{key:d.map};
+  if(g.type==='keep'||!g.type){
+    // built-in doors (Hearthvale): the room is named after the door, e.g. lab -> hv_lab
+    const byName=Object.keys(RD.rooms).find(kk=>RD.rooms[kk].area===area&&(kk===(area===0?'hv_':'a'+area+'_')+b.name||kk.endsWith('_'+b.name)));
+    if(byName)return{key:byName};
+    if(d&&d!=='builtin'&&d.t!=='warp')return{why:d.t==='say'?'This door only shows a message in the game (“'+String((d.lines||[''])[0]).slice(0,60)+'…”). To give it a room, set “Door leads to” to A room….':'This door opens something special in the game (a shop menu or the League), not a room.'}}
   const pickT=re=>{const e=Object.entries(RD.rooms).find(([kk,r])=>r.area===area&&re.test(r.title))||Object.entries(RD.rooms).find(([kk,r])=>re.test(r.title));return e?{key:e[0]}:null};
   const type=g.type==='keep'||!g.type?(k.kind||''):g.type;
   if(type==='center')return pickT(/Center/i);if(type==='mart')return pickT(/Mart/i);if(type==='gym')return pickT(/Gym/i);
