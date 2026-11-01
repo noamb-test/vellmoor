@@ -481,6 +481,10 @@ const areaName=a=>RD.areas[a]||AREAN[a]||'Somewhere';
 function fromGame(key){const r=RD.rooms[key];const m={v:1,mode:'indoor',name:r.title+' ('+areaName(r.area)+')',key,area:r.area,title:r.title,img:r.img,w:r.w,h:r.h,
   coll:r.coll.map(row=>row.padEnd(r.w,'1').slice(0,r.w)),mats:r.exits.map(e=>({x:e.x,y:e.y,to:e.to})),npcs:JSON.parse(JSON.stringify(r.npcs)).map(n=>n.kind==='builtin'?Object.assign(n,{ox:n.x,oy:n.y}):n),signs:JSON.parse(JSON.stringify(r.signs)).map(g=>g.builtin?Object.assign(g,{ox:g.x,oy:g.y}):g),puzzle:r.pz};
   return m}
+function roomDraft(key){try{const m=JSON.parse(localStorage.getItem('vme_room:'+key)||'null');return m&&m.mode==='indoor'?m:null}catch(e){return null}}
+function roomSent(key){try{const t=JSON.parse(localStorage.getItem('vellmoor_test_map:room:'+key)||'null');if(!t||!t.room)return null;const r=RD.rooms[key]||{},R=t.room;
+  return{v:1,mode:'indoor',name:t.name||(r.title||'Room'),key,area:r.area,title:r.title,img:R.img,w:R.w,h:R.h,coll:R.coll.slice(),mats:R.mats||[],npcs:R.npcs||[],signs:R.signs||[],holes:R.holes||[],furn:(R.furn||[]).map(f=>Object.assign({},f,{_ax:f.x,_ay:f.y,_b:f.block||'all'})),puzzle:r.pz}}catch(e){return null}}
+function loadRoom(key){const d=roomDraft(key);if(d)return normIn(d);const s=roomSent(key);if(s)return normIn(s);return fromGame(key)}
 function blankRoom(img){const m={v:1,mode:'indoor',name:'New room',key:null,area:null,title:'House',img,w:12,h:10,coll:[],mats:[],npcs:[],signs:[]};
   m.coll=Array.from({length:m.h},(_,y)=>Array.from({length:m.w},(_,x)=>(x===0||y===0||x===m.w-1||y===m.h-1)?'1':'0').join(''));m._fitPending=true;return m}
 function normIn(m){m.mats=m.mats||[];m.npcs=m.npcs||[];m.signs=m.signs||[];m.coll=m.coll||[];m.w=m.w|0;m.h=m.h|0;
@@ -568,12 +572,14 @@ const _panel=panel;panel=function(){if(!isIn())return _panel();const R=$('#right
    <label>Replaces in the game</label><select id="iKey">${roomOptions(M.key)}</select>
    <label>Room picture</label><select id="iImg">${RD.images.map(([k])=>`<option value="${k}" ${k===M.img?'selected':''}>${esc(nice(k))}</option>`).join('')}</select>
    <div class="muted" style="margin-top:6px">${M.w} × ${M.h} tiles${M.puzzle?' · This gym has a puzzle (switches, lanterns…). Walls you paint here sit under the puzzle.':''}</div>
-   <div class="row" style="margin-top:6px"><button id="iRewall" title="Start the walls over from the picture">Redo walls from picture</button></div></div>`;
+   <div class="row" style="margin-top:6px"><button id="iRewall" title="Start the walls over from the picture">Redo walls from picture</button></div>
+   ${M.key?`<div class="muted" style="margin-top:8px">${roomDraft(M.key)||roomSent(M.key)?'You’re editing your version of this room.':'This is the room as it is in the game.'}</div><div class="row" style="margin-top:6px"><button id="iOrig">Start over from the game’s version</button></div>`:''}</div>`;
   h+=`<div class="card"><h3>Check</h3><ul class="issues" id="issues"></ul></div>`;
   R.innerHTML=h;wirePanel();
   const on=(id,ev,fn)=>{const el=$(id);if(el)el.addEventListener(ev,fn)};
-  on('#iKey','change',e=>{const k=e.target.value;if(k&&RD.rooms[k]&&confirm('Load '+RD.rooms[k].title+' as it is in the game? Unsaved changes to this room are lost.')){setMap(fromGame(k));return}snap();M.key=k||null;check()});
+  on('#iKey','change',e=>{const k=e.target.value;if(k&&RD.rooms[k]&&confirm('Open '+RD.rooms[k].title+'? (Your changes to this room stay saved.)')){setMap(loadRoom(k));return}snap();M.key=k||null;check()});
   on('#iImg','change',e=>{snap();M.img=e.target.value;const o2=roomImg(M.img);if(o2.ok)fitRoomToImage();else M._fitPending=true;renderAll()});
+  on('#iOrig','click',()=>{if(!confirm('Throw away your changes to this room and load it as it is in the game? (A version you already sent to the game stays until you remove it there.)'))return;try{localStorage.removeItem('vme_room:'+M.key)}catch(e){}setMap(fromGame(M.key))});
   on('#iRewall','click',()=>{if(!confirm('Replace all walls with a fresh outline from the picture?'))return;snap();fitRoomToImage()});
   check()};
 
@@ -597,7 +603,7 @@ const _check=check;check=function(){if(!isIn())return _check();const iss=[];
   const s=$('#sCheck');s.className=iss.some(i=>i[0]==='bad')?'bad':iss.length?'warn':'ok';s.textContent=iss.some(i=>i[0]==='bad')?`${iss.filter(i=>i[0]==='bad').length} problem(s)`:iss.length?`${iss.length} note(s)`:'Ready to save'};
 
 /* ---------- files, autosave, opening ---------- */
-const _save=save;save=function(){if(!isIn())return _save();try{localStorage.setItem('vme_autosave_in',JSON.stringify(M))}catch(e){}};
+const _save=save;save=function(){if(!isIn())return _save();try{const j=JSON.stringify(M);localStorage.setItem('vme_autosave_in',j);if(M.key)localStorage.setItem('vme_room:'+M.key,j)}catch(e){}};
 const savedMode=()=>{try{return localStorage.getItem('vme_mode')==='indoor'?'indoor':'outdoor'}catch(e){return'outdoor'}};
 const _ready=ready;ready=function(){_ready();setMode(savedMode(),true)};
 const _setMap=setMap;setMap=function(m,k){_setMap(m,k);if(isIn())save()};
@@ -615,7 +621,7 @@ $('#top h1').after(seg);$('#mOut').onclick=()=>setMode('outdoor');$('#mIn').oncl
 // Open / New / Load / Export in indoor mode
 const oOpen=$('#bOpen').onclick;$('#bOpen').onclick=()=>{if(!isIn())return oOpen();const by={};for(const[k,r]of Object.entries(RD.rooms))(by[r.area]=by[r.area]||[]).push([k,r]);
   modal(`<h2>Open a room from the game</h2><p class="muted">Houses, gyms, Pokémon Centers, marts and every other building you can walk into.</p><div class="rooms">${Object.keys(by).sort((a,b)=>a-b).map(a=>`<div class="h">${esc(areaName(+a))}</div><div class="areas">${by[a].sort((p,q)=>p[1].title.localeCompare(q[1].title)).map(([k,r])=>`<button data-r="${k}">${/gym/i.test(r.title)?'🏟️':/Center/.test(r.title)?'🏥':/Mart/.test(r.title)?'🛒':'🏠'} ${esc(r.title)}</button>`).join('')}</div>`).join('')}</div>`,
-    b=>b.querySelectorAll('[data-r]').forEach(x=>x.onclick=()=>{setMap(fromGame(x.dataset.r));closeModal()}))};
+    b=>b.querySelectorAll('[data-r]').forEach(x=>x.onclick=()=>{setMap(loadRoom(x.dataset.r));closeModal()}))};
 const oNew=$('#bNew').onclick;$('#bNew').onclick=()=>{if(!isIn())return oNew();
   modal(`<h2>New room</h2><p class="muted">Pick a room picture to start from. The size comes from the picture; walls start along the edges.</p>
    <label>Room picture</label><select id="nImg">${RD.images.map(([k])=>`<option value="${k}">${esc(nice(k))}</option>`).join('')}</select>
@@ -645,7 +651,7 @@ function roomForBuilding(b){if(typeof RD==='undefined')return null;const k=V.kit
 window.goInside=goInside;window.roomForBuilding=roomForBuilding;
 function goInside(b){const r=roomForBuilding(b);if(!r||r.why){alert(r&&r.why||'There is no room to open for this building yet.');return}
   save();let m;
-  if(r.key){let last=null;try{last=JSON.parse(localStorage.getItem('vme_autosave_in')||'null')}catch(e){}m=last&&last.mode==='indoor'&&last.key===r.key?normIn(last):fromGame(r.key)}
+  if(r.key){let last=null;try{last=JSON.parse(localStorage.getItem('vme_autosave_in')||'null')}catch(e){}m=last&&last.mode==='indoor'&&last.key===r.key?normIn(last):loadRoom(r.key)}
   else{m=blankRoom(r.blank);m.name=b.name||'Room';m.title=b.name||'House'}
   setMap(m);setMode('indoor')}
 let _lastTap=null;cv.addEventListener('pointerdown',e=>{if(isIn()||!M)return;const now=Date.now(),t=_lastTap;_lastTap={now,x:e.clientX,y:e.clientY};if(!t||now-t.now>400||Math.abs(t.x-e.clientX)>6||Math.abs(t.y-e.clientY)>6)return;_lastTap=null;const r=cv.getBoundingClientRect(),px=(e.clientX-r.left)/zoom,py=(e.clientY-r.top)/zoom;
