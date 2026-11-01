@@ -11484,15 +11484,16 @@ function vmtSign(s,M,base){const L=s.lines||[];
 /* a room's picture with the map maker's furniture changes painted on */
 function vmtRoomPics(M){const make=up=>{const c=document.createElement('canvas');c.complete=false;c.naturalWidth=0;
     const base=owLoad(OWDIR+'maps/'+M.img+(up?'_upper.png':'_lower.png'));const srcs=[...new Set((M.vmFurn||[]).map(f=>f.src))].map(s=>[s,owLoad(OWDIR+'maps/'+s+(up?'_upper.png':'_lower.png'))]);
+    const hsrc=[...new Set((M.vmHoles||[]).map(h=>h.src).filter(Boolean))].map(s=>[s,owLoad(OWDIR+'maps/'+s+'_lower.png')]);
     const lowBase=owLoad(OWDIR+'maps/'+M.img+'_lower.png');
-    const done=()=>{const all=[base,lowBase,...srcs.map(x=>x[1])];if(all.some(i=>!i.complete))return;
+    const done=()=>{const all=[base,lowBase,...srcs.map(x=>x[1]),...hsrc.map(x=>x[1])];if(all.some(i=>!i.complete))return;
       c.width=M.w*16;c.height=M.h*16;const x=c.getContext('2d');x.imageSmoothingEnabled=false;const OX=(M.vmOx||0)*16,OY=(M.vmOy||0)*16;
       if(owOk(base))x.drawImage(base,OX,OY);
       for(const h of M.vmHoles||[])for(let j=0;j<h.h;j++)for(let i=0;i<h.w;i++){const t=h.tiles&&h.tiles[j*h.w+i]||[h.fx,h.fy];
-        if(up)x.clearRect((h.x+i)*16,(h.y+j)*16,16,16);else if(owOk(lowBase))x.drawImage(lowBase,t[0]*16,t[1]*16,16,16,(h.x+i)*16,(h.y+j)*16,16,16)}
+        const HB=h.src?(hsrc.find(z=>z[0]===h.src)||[])[1]:lowBase;if(up)x.clearRect((h.x+i)*16,(h.y+j)*16,16,16);else if(owOk(HB))x.drawImage(HB,t[0]*16,t[1]*16,16,16,(h.x+i)*16,(h.y+j)*16,16,16)}
       const S=Object.fromEntries(srcs);for(const f of(M.vmFurn||[]).slice().sort((a,b)=>a.y+a.h-b.y-b.h)){const im=S[f.src];if(owOk(im))x.drawImage(im,f.sx*16,f.sy*16,f.w*16,f.h*16,f.x*16,f.y*16,f.w*16,f.h*16)}
       c.complete=true;c.naturalWidth=c.width};
-    for(const i of[base,lowBase,...srcs.map(x=>x[1])]){if(!i.complete){i.addEventListener('load',done);i.addEventListener('error',done)}}done();return c};
+    for(const i of[base,lowBase,...srcs.map(x=>x[1]),...hsrc.map(x=>x[1])]){if(!i.complete){i.addEventListener('load',done);i.addEventListener('error',done)}}done();return c};
   return{lower:make(false),upper:make(true)}}
 function vmtApply(t){
   if(t.kind==='town'){const key=OW_AREA[t.area];const base=OW_MAPS[key];if(!key||!base)return null;const R=t.map;

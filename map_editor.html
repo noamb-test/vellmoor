@@ -505,7 +505,7 @@ const _toolbar=toolbar;toolbar=function(){if(!isIn())return _toolbar();
   $('#tools').innerHTML=ITOOLS.map(([k,l,s])=>`<button data-t="${k}" class="${tool===k?'on':''}" title="${l} (${s})">${l}</button>`).join('');
   document.querySelectorAll('#tools button').forEach(b=>b.onclick=()=>{tool=b.dataset.t;toolbar();palette();renderAll()})};
 const _palette=palette;palette=function(){if(!isIn())return _palette();const P=$('#palette');let h='';
-  if(tool==='wall'||tool==='floor')h+=`<div class="h">Brush size</div><div class="row">`+[1,2,3].map(b=>`<button data-wb="${b}" class="${wallBrush===b?'on':''}">${b}</button>`).join('')+`</div><p class="muted">${tool==='wall'?'Paint where you can’t walk: walls, furniture, counters, the dark area outside the room.':'Paint where you can walk.'} Red = wall.</p>`;
+  if(tool==='wall'||tool==='floor')h+=`<div class="h">Brush size</div><div class="row">`+[1,2,3].map(b=>`<button data-wb="${b}" class="${wallBrush===b?'on':''}">${b}</button>`).join('')+`</div><p class="muted">${tool==='wall'?'Paint where you can’t walk: walls, furniture, counters, the dark area outside the room.':'Paint where you can walk.'} Red = wall. This only changes where you can walk; to draw floor or wall pictures use <b>Tiles</b>.</p>`;
   if(tool==='box')h+=`<div class="h">Fill the box with</div><div class="row"><button data-bw="1" class="${boxWall?'on':''}">Wall</button><button data-bw="0" class="${!boxWall?'on':''}">Floor</button></div><p class="muted">Drag a rectangle.</p>`;
   if(tool==='person')h+=`<div class="h">Who</div><div class="list">`+[['person','Townsperson'],['trainer','Trainer (battles you)'],['item','Item ball'],['mon','Pokémon (stands around)']].map(([k,l])=>`<button data-n="${k}" class="${personKind===k?'on':''}">${l}</button>`).join('')+`</div><p class="muted">Click a tile to place. Use Select to move or edit.</p>`;
   if(tool==='sign')h+=`<p class="muted">Click something the player can read or look at (a sign, bookshelf, TV, poster). Type what it says on the right. The tile becomes a wall so you face it to read.</p>`;
@@ -911,6 +911,61 @@ function resizeRoom(w,h,anch){snap();fnorm();const ow=M.w,oh=M.h;
   if(floor){const edge=[];if(dx>0)for(let y=1;y<H-1;y++)edge.push([dx,y,1,0]);if(W>ow&&!dx)for(let y=1;y<H-1;y++)edge.push([ow-1,y,-1,0]);if(dy>0)for(let x=1;x<W-1;x++)edge.push([x,dy,0,1]);if(H>oh&&!dy)for(let x=1;x<W-1;x++)edge.push([x,oh-1,0,-1]);
     for(const[x,y]of edge){if(x<1||y<1||x>=W-1||y>=H-1||!picDark(x,y))continue;M.holes.push({x,y,w:1,h:1,fx:floor[0],fy:floor[1],tiles:[floor.slice()],stamp:true});M.coll[y]=M.coll[y].slice(0,x)+'0'+M.coll[y].slice(x+1)}}
   fit();after();palette()}
+
+/* ---------- Tiles (paint floor or wall pictures) and Eraser (clear to floor) ---------- */
+ITOOLS.splice(ITOOLS.findIndex(t=>t[0]==='furn'),0,['tiles','Tiles','T'],['erase','Eraser','E']);
+let tsrc=null,tmode='floor',tpic=null,ebrush=1;
+function holeImg(h,o){return h.src&&h.src!==M.img?roomImg(h.src):o}
+/* the floor to leave behind when clearing a tile */
+function floorFor(x,y){if(tsrc&&tmode==='floor'){const i=((x-(tsrc.ax||0))%tsrc.w+tsrc.w)%tsrc.w,j=((y-(tsrc.ay||0))%tsrc.h+tsrc.h)%tsrc.h;return{t:[tsrc.x+i,tsrc.y+j],src:tsrc.img}}
+  return{t:floorLocal(x,y),src:null}}
+/* the floor tile that shows up most often close to (x,y) */
+function floorLocal(x,y){const C=(fdrag&&fdrag._fc)||(()=>{const c={};for(let j=0;j<M.h;j++)for(let i=0;i<M.w;i++){if(M.coll[j][i]!=='0'||!inPic(i,j)||picDark(i,j))continue;const s=tileSig(i-(M.ox||0),j-(M.oy||0));if(s===null)return null;c[i+','+j]=s;c['#'+s]=(c['#'+s]||0)+1}return c})();
+  if(fdrag)fdrag._fc=C;let best=null,bs=-1e9;
+  for(let r=1;r<=5;r++)for(let j=y-r;j<=y+r;j++)for(let i=x-r;i<=x+r;i++){if(Math.max(Math.abs(i-x),Math.abs(j-y))!==r)continue;if(i<0||j<0||i>=M.w||j>=M.h||M.coll[j][i]!=='0'||!inPic(i,j)||picDark(i,j))continue;
+    if(M.holes.some(o=>i>=o.x&&i<o.x+o.w&&j>=o.y&&j<o.y+o.h)||M.npcs.some(n=>n.x===i&&n.y===j))continue;const n=C?(C['#'+C[i+','+j]]||0):0;const sc=n*4-r*3;if(sc>bs){bs=sc;best=[i,j]}}
+  return best?toPic(best):floorNear(x,y,1,1)}
+function putTile(x,y,t,src){M.holes=M.holes.filter(o=>!(o.stamp&&o.x===x&&o.y===y));const h={x,y,w:1,h:1,fx:t[0],fy:t[1],tiles:[t.slice()],stamp:true};if(src&&src!==M.img)h.src=src;M.holes.push(h)}
+function paintTileAt(p){if(!inside(p)||!tsrc||!fdrag)return;const k=p+'';if(fdrag.seen.has(k))return;fdrag.seen.add(k);
+  const i=((p[0]-fdrag.x0)%tsrc.w+tsrc.w)%tsrc.w,j=((p[1]-fdrag.y0)%tsrc.h+tsrc.h)%tsrc.h;putTile(p[0],p[1],[tsrc.x+i,tsrc.y+j],tsrc.img);setWall(p[0],p[1],tmode==='wall');renderAll()}
+/* clear one tile to plain floor: people, signs, furniture and walls go; exit mats stay */
+function eraseTile(x,y){if(x<0||y<0||x>=M.w||y>=M.h)return;fnorm();
+  M.npcs=M.npcs.filter(n=>!(n.x===x&&n.y===y));M.signs=M.signs.filter(s=>!(s.x===x&&s.y===y));
+  for(const f of M.furn.slice())if(x>=f.x&&x<f.x+f.w&&y>=f.y&&y<f.y+f.h){if(f._ax!==undefined)fWalls(Object.assign({},f,{x:f._ax,y:f._ay,block:f._b}),false);M.furn.splice(M.furn.indexOf(f),1)}
+  const mat=M.mats.some(m=>m.x===x&&m.y===y);const stamped=M.holes.some(o=>o.stamp&&o.x===x&&o.y===y);
+  if(!mat){M.holes=M.holes.filter(o=>!(o.stamp&&o.x===x&&o.y===y));setWall(x,y,false);const f=floorFor(x,y);if(f.t)putTile(x,y,f.t,f.src)}
+  setWall(x,y,false)}
+function eraseAt(p){if(!fdrag)return;const o=Math.floor((ebrush-1)/2);for(let j=0;j<ebrush;j++)for(let i=0;i<ebrush;i++){const x=p[0]-o+i,y=p[1]-o+j,k=x+','+y;if(fdrag.seen.has(k))continue;fdrag.seen.add(k);eraseTile(x,y)}renderAll()}
+{const _rl=furnLower;furnLower=function(o){fnorm();
+  for(const h of M.holes){const im=holeImg(h,o);if(!im||!im.ok)continue;for(let j=0;j<h.h;j++)for(let i=0;i<h.w;i++){const t=h.tiles&&h.tiles[j*h.w+i]||[h.fx,h.fy];ctx.drawImage(im.lower,t[0]*16,t[1]*16,16,16,(h.x+i)*16,(h.y+j)*16,16,16)}}
+  for(const f of M.furn.slice().sort((a,b)=>a.y+a.h-b.y-b.h)){const s=roomImg(f.src);if(s&&s.ok)ctx.drawImage(s.lower,f.sx*16,f.sy*16,f.w*16,f.h*16,f.x*16,f.y*16,f.w*16,f.h*16)}}}
+const _pal3=palette;palette=function(){_pal3();if(!isIn())return;const P=$('#palette');
+  if(tool==='erase'){P.innerHTML=`<div class="h">Brush size</div><div class="row">${[1,2,3,5].map(b=>`<button data-eb="${b}" class="${ebrush===b?'on':''}">${b}</button>`).join('')}</div>
+     <p class="muted">Drag over anything to clear it down to floor: furniture, walls, people, signs and item balls. Exit mats stay.</p><p class="muted">${tsrc&&tmode==='floor'?'Uses the floor tile picked in the Tiles tool.':'Uses the room’s main floor. To choose a different floor, pick one in the Tiles tool (Paint as: Floor).'}</p>`;
+    P.querySelectorAll('[data-eb]').forEach(b=>b.onclick=()=>{ebrush=+b.dataset.eb;palette()});return}
+  if(tool!=='tiles')return;const pic=tpic||M.img;
+  P.innerHTML=`<div class="h">Paint as</div><div class="row"><button data-tm="floor" class="${tmode==='floor'?'on':''}">Floor</button><button data-tm="wall" class="${tmode==='wall'?'on':''}">Wall</button></div>
+   <p class="muted">${tmode==='floor'?'Painted tiles can be walked on.':'Painted tiles block the way.'}</p>
+   <div class="h">Pick tiles from</div><select id="tPic" style="width:100%">${RD.images.map(([k])=>`<option value="${k}" ${k===pic?'selected':''}>${esc(nice(k))}${k===M.img?' (this room)':''}</option>`).join('')}</select>
+   <div style="margin-top:6px;max-height:340px;overflow:auto;border:1px solid var(--line);border-radius:6px;background:#000"><canvas id="tCv" style="image-rendering:pixelated;cursor:crosshair;display:block;touch-action:none"></canvas></div>
+   <p class="muted">${tsrc?`Picked ${tsrc.w}×${tsrc.h} tile${tsrc.w*tsrc.h>1?'s':''}. `:''}Click a tile in the picture, or drag to pick a pattern (like a 2×2 floor). Then paint it in the room.</p>`;
+  P.querySelectorAll('[data-tm]').forEach(b=>b.onclick=()=>{tmode=b.dataset.tm;palette()});
+  $('#tPic').onchange=e=>{tpic=e.target.value;palette()};
+  const cvp=$('#tCv'),im=roomImg(pic);const draw=()=>{if(!im.ok){im.lower.addEventListener('load',draw,{once:true});return}const W=im.lower.naturalWidth,H=im.lower.naturalHeight,k=Math.max(.5,Math.min(1.25,186/W));
+    cvp.width=W;cvp.height=H;cvp.style.width=W*k+'px';cvp.style.height=H*k+'px';const x=cvp.getContext('2d');x.imageSmoothingEnabled=false;x.drawImage(im.lower,0,0);
+    x.strokeStyle='rgba(255,255,255,.12)';x.lineWidth=1;for(let i=0;i<=W;i+=16){x.beginPath();x.moveTo(i+.5,0);x.lineTo(i+.5,H);x.stroke()}for(let j=0;j<=H;j+=16){x.beginPath();x.moveTo(0,j+.5);x.lineTo(W,j+.5);x.stroke()}
+    if(tsrc&&tsrc.img===pic){x.strokeStyle='#3dff7a';x.lineWidth=2;x.strokeRect(tsrc.x*16+1,tsrc.y*16+1,tsrc.w*16-2,tsrc.h*16-2)}};draw();
+  let a=null;const at=e=>{const r=cvp.getBoundingClientRect();return[Math.max(0,Math.floor((e.clientX-r.left)/r.width*cvp.width/16)),Math.max(0,Math.floor((e.clientY-r.top)/r.height*cvp.height/16))]};
+  const pickRect=(p,q)=>{tsrc={img:pic,x:Math.min(p[0],q[0]),y:Math.min(p[1],q[1]),w:Math.abs(p[0]-q[0])+1,h:Math.abs(p[1]-q[1])+1};draw()};
+  cvp.onpointerdown=e=>{a=at(e);cvp.setPointerCapture(e.pointerId);pickRect(a,a)};cvp.onpointermove=e=>{if(a)pickRect(a,at(e))};cvp.onpointerup=()=>{if(a){a=null;palette()}}};
+stage.addEventListener('pointerdown',e=>{if(!isIn()||space||e.button!==0||(tool!=='tiles'&&tool!=='erase'))return;const t=tileAt(e);e.stopImmediatePropagation();try{stage.setPointerCapture(e.pointerId)}catch(_){}
+  if(tool==='tiles'){if(!tsrc){alert('Pick a tile first: click one in the picture on the left.');return}snap();fdrag={tiles:true,x0:t[0],y0:t[1],seen:new Set()};tsrc.ax=t[0];tsrc.ay=t[1];paintTileAt(t);return}
+  snap();fdrag={erase:true,seen:new Set()};eraseAt(t)},true);
+stage.addEventListener('pointermove',e=>{if(!isIn()||!fdrag)return;const t=tileAt(e);if(fdrag.tiles)paintTileAt(t);else if(fdrag.erase)eraseAt(t)});
+window.addEventListener('pointerup',()=>{if(!isIn()||!fdrag||!(fdrag.tiles||fdrag.erase))return;fdrag=null;after()},true);
+/* Delete with an area selected (Furniture tool): clear everything in it down to floor */
+window.addEventListener('keydown',e=>{if(!isIn()||tool!=='furn'||!fsel||e.target.matches('input,textarea,select'))return;if(e.key!=='Delete'&&e.key!=='Backspace')return;
+  e.preventDefault();e.stopImmediatePropagation();snap();fdrag={erase:true,seen:new Set()};for(const r of fAreas())for(let j=0;j<r.h;j++)for(let i=0;i<r.w;i++)eraseTile(r.x+i,r.y+j);fdrag=null;fsel=null;fextra=[];after();palette()},true);
 
 })();
 
