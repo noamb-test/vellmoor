@@ -700,8 +700,8 @@ function fTake(r,cut){fnorm();const f={src:M.img,sx:r.x,sy:r.y,w:r.w,h:r.h,x:r.x
 const _pal2=palette;palette=function(){_pal2();if(!isIn())return;const P=$('#palette');
   if(tool==='item'){P.innerHTML=`<p class="muted">Click a tile to drop an item ball. Pick the item on the right. Use Select to move it.</p>`;return}
   if(tool!=='furn')return;const L=flib();
-  let h=`<p class="muted"><b>Drag a box</b> over something in the room (a table, plant, TV, bed…), then choose what to do with it. Click a piece to select it; drag it to move; Delete removes it.</p>`;
-  if(fsel)h+=`<div class="h">Selected area ${fsel.w}×${fsel.h}</div><div class="list"><button id="fCut" class="primary">Move it (pick it up)</button><button id="fCopy">Copy it</button><button id="fGone">Remove it (cover with floor)</button><button id="fLib">Save to my furniture</button><button id="fNo">Cancel</button></div>`;
+  let h=`<p class="muted"><b>Click</b> something in the room (a table, plant, TV, bed…) to select it, or drag a box around it. Then choose what to do with it. Click a piece to select it; drag it to move; Delete removes it.</p>`;
+  if(fsel)h+=`<div class="h">Selected area ${fsel.w}×${fsel.h}</div><p class="muted">Not quite right? Shift-click a tile to stretch the box to it, or drag a new box.</p><div class="list"><button id="fCut" class="primary">Move it (pick it up)</button><button id="fCopy">Copy it</button><button id="fGone">Remove it (cover with floor)</button><button id="fLib">Save to my furniture</button><button id="fNo">Cancel</button></div>`;
   h+=`<div class="h">Touch up the floor</div><div class="row"><button id="fStamp" class="${stampOn?'on':''}">${stampOn?(stampSrc?'Stamping… (click to stop)':'Click a tile to copy…'):'Stamp brush'}</button>${stampOn&&stampSrc?'<button id="fStampNew">Copy another tile</button>':''}</div><p class="muted">Copy any tile of the picture (floor, rug, wall) and paint it over spots that don’t look right.</p>`;
   h+=`<div class="h">Floor for empty spots</div><div class="row"><button id="fPick" class="${floorPicking?'on':''}">${floorPicking?'Click a floor tile…':'Pick floor tile'}</button>${floorPick?`<button id="fAuto">Auto</button>`:''}</div><p class="muted">${floorPick?`Using the tile at ${floorPick[0]}, ${floorPick[1]}.`:'Auto: each empty tile copies the floor right next to it.'}${(M.holes||[]).length?' <a href="#" id="fApply">Use it for all empty spots</a>':''}</p>`;
   h+=`<div class="h">My furniture</div>`+(L.length?`<div class="kitgrid">${L.map((p,i)=>`<button data-fl="${i}" class="${fpick&&fpick._i===i?'on':''}" title="Click, then click in the room to place"><canvas data-flc="${i}"></canvas>${esc(p.name||nice(p.src))}</button>`).join('')}</div><p class="muted">Pick one, then click in the room to place it. It works in any room.</p>`:`<p class="muted">Empty. Select something and press “Save to my furniture” to keep it for any room.</p>`);
@@ -799,6 +799,54 @@ function showSent(notes){const L=vmtList();
     <div class="row" style="margin-top:12px;justify-content:flex-end"><a class="btn" href="vellmoor.html" target="_blank" rel="noopener"><button class="primary">Open the game ▶</button></a><button id="sClose">Close</button></div>`,
     box=>{box.querySelector('#sClose').onclick=closeModal;box.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{try{localStorage.removeItem(b.dataset.rm)}catch(e){}showSent(notes)})})}
 {const b=document.createElement('button');b.id='bSend';b.className='primary';b.textContent='Send to game ▶';b.title='Try this map in the game in this browser';b.onclick=sendToGame;$('#bPng').after(b)}
+
+/* ---------- click a piece of furniture to select it (finds its edges in the picture) ---------- */
+function roomPx(){const o=roomImg(M.img);if(!o||!o.ok)return null;if(o._px)return o._px;if(o._pxBad)return null;
+  try{const c=document.createElement('canvas');c.width=o.lower.naturalWidth;c.height=o.lower.naturalHeight;const x=c.getContext('2d');x.drawImage(o.lower,0,0);o._px=x.getImageData(0,0,c.width,c.height);return o._px}catch(e){o._pxBad=true;return null}}
+function detectByWalls(tx,ty){if(wall(tx,ty)===false)return null;const seen=new Set([tx+','+ty]),q=[[tx,ty]];let x0=tx,x1=tx,y0=ty,y1=ty;
+  while(q.length){const[x,y]=q.shift();for(const[a,b]of[[1,0],[-1,0],[0,1],[0,-1]]){const nx=x+a,ny=y+b,k=nx+','+ny;if(seen.has(k)||nx<1||ny<1||nx>=M.w-1||ny>=M.h-1||!wall(nx,ny))continue;if(Math.abs(nx-tx)>3||Math.abs(ny-ty)>3)continue;seen.add(k);q.push([nx,ny]);x0=Math.min(x0,nx);x1=Math.max(x1,nx);y0=Math.min(y0,ny);y1=Math.max(y1,ny)}}
+  return{x:x0,y:y0,w:x1-x0+1,h:y1-y0+1}}
+/* furniture you can't walk on is a block of wall tiles: use that block, and stretch it up over the picture rows that belong to it */
+function detectPiece(tx,ty){const px=detectPx(tx,ty);
+  if(wall(tx,ty)&&tx>0&&ty>0&&tx<M.w-1&&ty<M.h-1){const w=detectByWalls(tx,ty);
+    if(w&&w.w<=5&&w.h<=5){if(px&&px.x>=w.x-1&&px.x+px.w<=w.x+w.w+1&&px.y<w.y&&w.y-px.y<=2){const y1=w.y+w.h;w.y=px.y;w.h=y1-px.y}return w}}
+  return px}
+function detectPx(tx,ty){const d=roomPx();if(!d)return detectByWalls(tx,ty);const W=d.width,H=d.height,P=d.data,tw=Math.min(M.w,W>>4),th=Math.min(M.h,H>>4);
+  const sigOf=(i,j)=>{let h=0;for(let y=0;y<16;y+=2)for(let x=0;x<16;x+=2){const q=((j*16+y)*W+i*16+x)*4;h=(h*31+(P[q]>>4)*256+(P[q+1]>>4)*16+(P[q+2]>>4))>>>0}return h};
+  const sig=[];for(let j=0;j<th;j++){sig.push([]);for(let i=0;i<tw;i++)sig[j].push(sigOf(i,j))}
+  // background tiles: common floor tiles, plus each row's repeating wall/floor tile
+  const cnt={},rep={};for(let j=0;j<th;j++)for(let i=0;i<tw;i++)if(M.coll[j]&&M.coll[j][i]==='0'){const s=sig[j][i];cnt[s]=(cnt[s]||0)+1;rep[s]=rep[s]||[i,j]}
+  const floors=Object.entries(cnt).filter(([s,n])=>n>=2).sort((a,b)=>b[1]-a[1]).slice(0,10).map(([s])=>rep[s]);
+  // the back-wall band: rows above the first row that is mostly floor you can walk on (a repeating wall tile there counts as background)
+  let band=0;for(let j=0;j<th;j++){let o=0;for(let i=0;i<tw;i++)if(M.coll[j]&&M.coll[j][i]==='0')o++;if(o>=tw*.4){band=j;break}}
+  const rowRep=[];for(let j=0;j<th;j++){if(j>=band){rowRep.push(null);continue}const c={},r={};for(let i=0;i<tw;i++){const s=sig[j][i];c[s]=(c[s]||0)+1;r[s]=r[s]||[i,j]}const best=Object.entries(c).sort((a,b)=>b[1]-a[1])[0];rowRep.push(best&&best[1]>=3?r[best[0]]:null)}
+  const pix=(x,y)=>{const q=(y*W+x)*4;return[P[q],P[q+1],P[q+2],P[q+3]]};
+  const near=(c,t)=>{const dd=Math.abs(c[0]-t[0])+Math.abs(c[1]-t[1])+Math.abs(c[2]-t[2]);if(dd<=42)return true;
+    const r=[0,1,2].map(k=>(c[k]+4)/(t[k]+4));const m=(r[0]+r[1]+r[2])/3;return m>.55&&m<.98&&r.every(v=>Math.abs(v-m)<.12)};
+  const bg=(x,y)=>{const c=pix(x,y);if(c[3]<20||c[0]+c[1]+c[2]<45)return true;const ox=x&15,oy=y&15,tj=y>>4;
+    for(const[i,j]of floors)if(near(c,pix(i*16+ox,j*16+oy)))return true;
+    for(const dj of[0,-1,1]){const r=rowRep[tj+dj];if(r&&dj===0&&near(c,pix(r[0]*16+ox,r[1]*16+oy)))return true}return false};
+  // start from the object pixel closest to the middle of the clicked tile
+  let st=null,bd=1e9;for(let y=0;y<16;y++)for(let x=0;x<16;x++){const px=tx*16+x,py=ty*16+y;if(px>=W||py>=H||bg(px,py))continue;const dd=(x-8)**2+(y-8)**2;if(dd<bd){bd=dd;st=[px,py]}}
+  if(!st)return null;
+  const seen=new Uint8Array(W*H),q=[st];seen[st[1]*W+st[0]]=1;const per={};let n=0;
+  while(q.length&&n<60000){const[x,y]=q.pop();n++;const k=(x>>4)+','+(y>>4);per[k]=(per[k]||0)+1;
+    for(let b=-1;b<=1;b++)for(let a=-1;a<=1;a++){const nx=x+a,ny=y+b;if(nx<0||ny<0||nx>=W||ny>=H)continue;const id=ny*W+nx;if(seen[id])continue;seen[id]=1;if(!bg(nx,ny))q.push([nx,ny])}}
+  let x0=1e9,y0=1e9,x1=-1,y1=-1;for(const[k,v]of Object.entries(per)){if(v<28)continue;const[i,j]=k.split(',').map(Number);x0=Math.min(x0,i);y0=Math.min(y0,j);x1=Math.max(x1,i);y1=Math.max(y1,j)}
+  if(x1<0)return null;const r={x:x0,y:y0,w:x1-x0+1,h:y1-y0+1};
+  if(r.w<=5&&r.h<=5)return r;
+  const T=new Set(Object.entries(per).filter(([k,v])=>v>=28).map(([k])=>k)),got=new Set([tx+','+ty]),qq=[[tx,ty]];
+  if(!T.has(tx+','+ty))return{x:tx,y:ty,w:1,h:1};
+  while(qq.length){const[x,y]=qq.shift();for(const[a,b]of[[1,0],[-1,0],[0,1],[0,-1]]){const nx=x+a,ny=y+b,k=nx+','+ny;if(got.has(k)||!T.has(k)||Math.abs(nx-tx)>2||ny-ty>2||ty-ny>3)continue;got.add(k);qq.push([nx,ny])}}
+  let a0=1e9,b0=1e9,a1=-1,b1=-1;for(const k of got){const[i,j]=k.split(',').map(Number);a0=Math.min(a0,i);b0=Math.min(b0,j);a1=Math.max(a1,i);b1=Math.max(b1,j)}
+  return{x:a0,y:b0,w:a1-a0+1,h:b1-b0+1}}
+/* in the Furniture tool a click (no drag) picks the whole piece; in Select, clicking furniture switches to the Furniture tool */
+let fGrowBase=null;
+stage.addEventListener('pointerdown',e=>{if(!isIn()||tool!=='furn'||!e.shiftKey||!fsel||fpick||stampOn||floorPicking)return;const t=tileAt(e);if(!inside(t))return;e.stopImmediatePropagation();
+  const x0=Math.min(fsel.x,t[0]),y0=Math.min(fsel.y,t[1]),x1=Math.max(fsel.x+fsel.w-1,t[0]),y1=Math.max(fsel.y+fsel.h-1,t[1]);fsel={x:x0,y:y0,w:x1-x0+1,h:y1-y0+1};palette();renderAll()},true);
+window.addEventListener('pointerup',()=>setTimeout(()=>{if(!isIn()||!fsel||fsel.w!==1||fsel.h!==1||tool!=='furn')return;const r=detectPiece(fsel.x,fsel.y);if(r){fsel=r;palette();renderAll()}},0));
+stage.addEventListener('pointerdown',e=>{if(!isIn()||space||e.button!==0||tool!=='select')return;const t=tileAt(e);if(!inside(t)||hit(t[0],t[1]))return;
+  const r=detectPiece(t[0],t[1]);if(!r)return;e.stopImmediatePropagation();tool='furn';sel=null;fsel=r;fpick=null;stampOn=false;toolbar();palette();panel();renderAll()},true);
 
 })();
 
