@@ -669,7 +669,8 @@ let _lastTap=null;cv.addEventListener('pointerdown',e=>{if(isIn()||!M)return;con
 
 /* ---------- furniture: move, copy, delete and add pieces of the room picture ---------- */
 ITOOLS.splice(ITOOLS.findIndex(t=>t[0]==='mat')+1,0,['furn','Furniture','U'],['item','Item','I']);
-let fsel=null,fpick=null,fdrag=null;
+let fsel=null,fpick=null,fdrag=null,fextra=[];const mset=new Set();
+const fAreas=()=>fsel?[fsel,...fextra]:[];const fGroup=()=>{const a=[];if(sel&&sel.t==='f'&&M.furn[sel.i])a.push(M.furn[sel.i]);for(const f of mset)if(M.furn.includes(f)&&!a.includes(f))a.push(f);return a};
 const flib=()=>{try{return JSON.parse(localStorage.getItem('vme_furnlib')||'[]')}catch(e){return[]}};
 const flibSave=a=>{try{localStorage.setItem('vme_furnlib',JSON.stringify(a.slice(-60)))}catch(e){}};
 function fnorm(){M.furn=M.furn||[];M.holes=M.holes||[]}
@@ -712,8 +713,13 @@ function furnMarks(){fnorm();if(tool!=='furn'&&tool!=='select')return;ctx.lineWi
   for(const f of M.furn){ctx.strokeStyle=sel&&sel.t==='f'&&M.furn[sel.i]===f?'#6fb3ff':'rgba(255,207,92,.8)';ctx.setLineDash([4/zoom,3/zoom]);ctx.strokeRect(f.x*16,f.y*16,f.w*16,f.h*16);ctx.setLineDash([])}
   if(fdrag&&fdrag.box){const[a,b]=fdrag.box;const x0=Math.min(a[0],b[0]),y0=Math.min(a[1],b[1]),x1=Math.max(a[0],b[0]),y1=Math.max(a[1],b[1]);ctx.fillStyle='rgba(111,179,255,.25)';ctx.fillRect(x0*16,y0*16,(x1-x0+1)*16,(y1-y0+1)*16);ctx.strokeStyle='#6fb3ff';ctx.strokeRect(x0*16,y0*16,(x1-x0+1)*16,(y1-y0+1)*16)}
   if(stampOn&&stampSrc&&hover&&tool==='furn'){const o=roomImg(M.img);if(o&&o.ok){ctx.globalAlpha=.75;ctx.drawImage(o.lower,stampSrc[0]*16,stampSrc[1]*16,16,16,hover[0]*16,hover[1]*16,16,16);ctx.globalAlpha=1}ctx.strokeStyle='#3dff7a';ctx.lineWidth=1.5/zoom;ctx.strokeRect((stampSrc[0]+(M.ox||0))*16,(stampSrc[1]+(M.oy||0))*16,16,16)}
-  if(fsel){ctx.strokeStyle='#6fb3ff';ctx.lineWidth=2/zoom;ctx.strokeRect(fsel.x*16,fsel.y*16,fsel.w*16,fsel.h*16)}
+  ctx.strokeStyle='#6fb3ff';ctx.lineWidth=2/zoom;for(const r of fAreas()){ctx.fillStyle='rgba(111,179,255,.18)';ctx.fillRect(r.x*16,r.y*16,r.w*16,r.h*16);ctx.strokeRect(r.x*16,r.y*16,r.w*16,r.h*16)}
+  for(const f of mset)if(M.furn.includes(f))ctx.strokeRect(f.x*16,f.y*16,f.w*16,f.h*16);
   if(fpick&&hover&&tool==='furn'){const s=roomImg(fpick.src);ctx.globalAlpha=.7;if(s&&s.ok)ctx.drawImage(s.lower,fpick.sx*16,fpick.sy*16,fpick.w*16,fpick.h*16,hover[0]*16,hover[1]*16,fpick.w*16,fpick.h*16);ctx.globalAlpha=1}}
+function fTakeMany(cut){fnorm();const A=fAreas(),made=[];for(const r of A){const f={src:M.img,sx:r.x-(M.ox||0),sy:r.y-(M.oy||0),w:r.w,h:r.h,x:r.x+(cut?0:1),y:r.y+(cut?0:1),block:'all'};
+    if(cut){const[fx,fy]=floorNear(r.x,r.y,r.w,r.h);M.holes.push({x:r.x,y:r.y,w:r.w,h:r.h,fx,fy,tiles:fillFor(r.x,r.y,r.w,r.h)});for(let j=0;j<r.h;j++)for(let i=0;i<r.w;i++)setWall(r.x+i,r.y+j,false)}
+    M.furn.push(f);made.push(f)}
+  fSync();mset.clear();sel=made.length?{t:'f',i:M.furn.indexOf(made[0])}:null;for(const f of made.slice(1))mset.add(f);fsel=null;fextra=[];after();palette()}
 /* cut = take it out of the picture (the spot gets floor), copy = leave the original */
 function fTake(r,cut){fnorm();const f={src:M.img,sx:r.x-(M.ox||0),sy:r.y-(M.oy||0),w:r.w,h:r.h,x:r.x+(cut?0:1),y:r.y+(cut?0:1),block:'all'};
   if(cut){const[fx,fy]=floorNear(r.x,r.y,r.w,r.h);M.holes.push({x:r.x,y:r.y,w:r.w,h:r.h,fx,fy,tiles:fillFor(r.x,r.y,r.w,r.h)});for(let j=0;j<r.h;j++)for(let i=0;i<r.w;i++)setWall(r.x+i,r.y+j,false);f._ax=undefined}
@@ -721,18 +727,18 @@ function fTake(r,cut){fnorm();const f={src:M.img,sx:r.x-(M.ox||0),sy:r.y-(M.oy||
 const _pal2=palette;palette=function(){_pal2();if(!isIn())return;const P=$('#palette');
   if(tool==='item'){P.innerHTML=`<p class="muted">Click a tile to drop an item ball. Pick the item on the right. Use Select to move it.</p>`;return}
   if(tool!=='furn')return;const L=flib();
-  let h=`<p class="muted"><b>Click</b> something in the room (a table, plant, TV, bed…) to select it, or drag a box around it. Then choose what to do with it. Click a piece to select it; drag it to move; Delete removes it.</p>`;
-  if(fsel)h+=`<div class="h">Selected area ${fsel.w}×${fsel.h}</div><p class="muted">Not quite right? Shift-click a tile to stretch the box to it, or drag a new box.</p><div class="list"><button id="fCut" class="primary">Move it (pick it up)</button><button id="fCopy">Copy it</button><button id="fGone">Remove it (cover with floor)</button><button id="fLib">Save to my furniture</button><button id="fNo">Cancel</button></div>`;
+  let h=`<p class="muted"><b>Click</b> something in the room (a table, plant, TV, bed…) to select it, or drag a box around it. Then choose what to do with it. Click a piece to select it; drag it to move; Delete removes it. <b>Shift-click</b> to select many at once.</p>`;
+  if(fsel){const n=fAreas().length;h+=`<div class="h">${n>1?n+' pieces selected':'Selected area '+fsel.w+'×'+fsel.h}</div><p class="muted"><b>Shift-click</b> more things to add them (shift-click again to drop one). Box not quite right? Alt-click a tile to stretch it, or drag a new box.</p><div class="list"><button id="fCut" class="primary">${n>1?'Move them (pick them up)':'Move it (pick it up)'}</button><button id="fCopy">${n>1?'Copy them':'Copy it'}</button><button id="fGone">${n>1?'Remove them':'Remove it'} (cover with floor)</button><button id="fLib">Save to my furniture</button><button id="fNo">Cancel</button></div>`}
   h+=`<div class="h">Touch up the floor</div><div class="row"><button id="fStamp" class="${stampOn?'on':''}">${stampOn?(stampSrc?'Stamping… (click to stop)':'Click a tile to copy…'):'Stamp brush'}</button>${stampOn&&stampSrc?'<button id="fStampNew">Copy another tile</button>':''}</div><p class="muted">Copy any tile of the picture (floor, rug, wall) and paint it over spots that don’t look right.</p>`;
   h+=`<div class="h">Floor for empty spots</div><div class="row"><button id="fPick" class="${floorPicking?'on':''}">${floorPicking?'Click a floor tile…':'Pick floor tile'}</button>${floorPick?`<button id="fAuto">Auto</button>`:''}</div><p class="muted">${floorPick?`Using the tile at ${floorPick[0]}, ${floorPick[1]}.`:'Auto: each empty tile copies the floor right next to it.'}${(M.holes||[]).length?' <a href="#" id="fApply">Use it for all empty spots</a>':''}</p>`;
   h+=`<div class="h">My furniture</div>`+(L.length?`<div class="kitgrid">${L.map((p,i)=>`<button data-fl="${i}" class="${fpick&&fpick._i===i?'on':''}" title="Click, then click in the room to place"><canvas data-flc="${i}"></canvas>${esc(p.name||nice(p.src))}</button>`).join('')}</div><p class="muted">Pick one, then click in the room to place it. It works in any room.</p>`:`<p class="muted">Empty. Select something and press “Save to my furniture” to keep it for any room.</p>`);
   P.innerHTML=h;
   const g=id=>P.querySelector(id);
-  if(g('#fCut'))g('#fCut').onclick=()=>{snap();fTake(fsel,true)};
-  if(g('#fCopy'))g('#fCopy').onclick=()=>{snap();fTake(fsel,false)};
-  if(g('#fGone'))g('#fGone').onclick=()=>{snap();fnorm();const r=fsel,[fx,fy]=floorNear(r.x,r.y,r.w,r.h);M.holes.push({x:r.x,y:r.y,w:r.w,h:r.h,fx,fy,tiles:fillFor(r.x,r.y,r.w,r.h)});for(let j=0;j<r.h;j++)for(let i=0;i<r.w;i++)setWall(r.x+i,r.y+j,false);fsel=null;after();palette()};
-  if(g('#fLib'))g('#fLib').onclick=()=>{const a=flib();a.push({src:M.img,sx:fsel.x-(M.ox||0),sy:fsel.y-(M.oy||0),w:fsel.w,h:fsel.h,name:(prompt('Name this piece','Furniture')||'Furniture').slice(0,24)});flibSave(a);palette()};
-  if(g('#fNo'))g('#fNo').onclick=()=>{fsel=null;renderAll();palette()};
+  if(g('#fCut'))g('#fCut').onclick=()=>{snap();fTakeMany(true)};
+  if(g('#fCopy'))g('#fCopy').onclick=()=>{snap();fTakeMany(false)};
+  if(g('#fGone'))g('#fGone').onclick=()=>{snap();fnorm();for(const r of fAreas()){const[fx,fy]=floorNear(r.x,r.y,r.w,r.h);M.holes.push({x:r.x,y:r.y,w:r.w,h:r.h,fx,fy,tiles:fillFor(r.x,r.y,r.w,r.h)});for(let j=0;j<r.h;j++)for(let i=0;i<r.w;i++)setWall(r.x+i,r.y+j,false)}fsel=null;fextra=[];after();palette()};
+  if(g('#fLib'))g('#fLib').onclick=()=>{const a=flib(),A=fAreas(),nm=(prompt(A.length>1?'Name these pieces':'Name this piece','Furniture')||'Furniture').slice(0,20);A.forEach((r,i)=>a.push({src:M.img,sx:r.x-(M.ox||0),sy:r.y-(M.oy||0),w:r.w,h:r.h,name:A.length>1?nm+' '+(i+1):nm}));flibSave(a);palette()};
+  if(g('#fNo'))g('#fNo').onclick=()=>{fsel=null;fextra=[];renderAll();palette()};
   if(g('#fStamp'))g('#fStamp').onclick=()=>{stampOn=!stampOn;if(!stampOn)stampSrc=null;fsel=null;fpick=null;palette();renderAll()};
   if(g('#fStampNew'))g('#fStampNew').onclick=()=>{stampSrc=null;palette()};
   if(g('#fPick'))g('#fPick').onclick=()=>{floorPicking=!floorPicking;palette()};
@@ -746,7 +752,7 @@ const _sel2=selObj;selObj=function(){if(isIn()&&sel&&sel.t==='f'){fnorm();return
 const _hit2=hit;hit=function(x,y){const r=_hit2(x,y);if(r||!isIn())return r;fnorm();for(let i=M.furn.length-1;i>=0;i--){const f=M.furn[i];if(x>=f.x&&x<f.x+f.w&&y>=f.y&&y<f.y+f.h)return{t:'f',i}}return null};
 const _del2=delSel;delSel=function(){if(isIn()&&sel&&sel.t==='f'){snap();const f=M.furn[sel.i];if(f._ax!==undefined){fWalls(Object.assign({},f,{x:f._ax,y:f._ay,block:f._b}),false)}M.furn.splice(sel.i,1);sel=null;after();return}_del2()};
 const _pan2=panel;panel=function(){_pan2();if(!isIn()||!sel||sel.t!=='f')return;const f=M.furn[sel.i];if(!f)return;const c=$('#selcard');if(!c)return;
-  c.innerHTML=`<h3>Furniture</h3><div class="muted">${f.w}×${f.h} tiles at ${f.x}, ${f.y}${f.src!==M.img?' · from '+esc(nice(f.src)):''}</div>
+  c.innerHTML=`<h3>Furniture${mset.size?` <span class="muted">+${mset.size} more selected</span>`:''}</h3>${mset.size?'<div class="muted">Drag, arrow keys and Delete move or remove them all together.</div>':''}<div class="muted">${f.w}×${f.h} tiles at ${f.x}, ${f.y}${f.src!==M.img?' · from '+esc(nice(f.src)):''}</div>
    <label>You can't walk on</label><select id="fBlock">${[['all','The whole piece'],['bottom','Only the bottom row'],['none','Nothing (walk over it)']].map(([k,l])=>`<option value="${k}" ${(f.block||'all')===k?'selected':''}>${l}</option>`).join('')}</select>
    <div class="row" style="margin-top:10px"><button id="fDup">Duplicate</button><button id="fSave">Save to my furniture</button><button id="bDel">Delete</button></div><div class="muted">Drag it in the room to move it. Arrow keys nudge it.</div>`;
   $('#fBlock').onchange=e=>{snap();f.block=e.target.value;fSync();after()};
@@ -754,24 +760,29 @@ const _pan2=panel;panel=function(){_pan2();if(!isIn()||!sel||sel.t!=='f')return;
   $('#fSave').onclick=()=>{const a=flib();a.push({src:f.src,sx:f.sx,sy:f.sy,w:f.w,h:f.h,name:(prompt('Name this piece','Furniture')||'Furniture').slice(0,24)});flibSave(a);palette()};
   $('#bDel').onclick=()=>delSel()};
 /* mouse for the Furniture and Item tools */
-stage.addEventListener('pointerdown',e=>{if(!isIn()||space||e.button!==0||(tool!=='furn'&&tool!=='item'))return;const t=tileAt(e);e.stopImmediatePropagation();try{stage.setPointerCapture(e.pointerId)}catch(_){}
+stage.addEventListener('pointerdown',e=>{if(!isIn()||space||e.button!==0||(tool!=='furn'&&tool!=='item'))return;if(tool==='furn'&&(e.shiftKey||e.altKey)&&!fpick&&!stampOn&&!floorPicking)return;const t=tileAt(e);e.stopImmediatePropagation();try{stage.setPointerCapture(e.pointerId)}catch(_){}
   if(tool==='item'){if(!inside(t))return;snap();const pk=personKind;personKind='item';const n=newPerson(t);personKind=pk;M.npcs.push(n);sel={t:'n',i:M.npcs.length-1};after();return}
   fnorm();
   if(floorPicking){if(inside(t)){floorPick=toPic(t);floorPicking=false;palette();renderAll()}return}
   if(stampOn){if(!inside(t))return;if(!stampSrc){stampSrc=toPic(t);palette();return}snap();fdrag={stamp:true};stampAt(t);return}
   if(fpick){if(!inside(t))return;snap();M.furn.push({src:fpick.src,sx:fpick.sx,sy:fpick.sy,w:fpick.w,h:fpick.h,x:Math.min(t[0],M.w-fpick.w),y:Math.min(t[1],M.h-fpick.h),block:'all'});fSync();sel={t:'f',i:M.furn.length-1};if(!e.shiftKey)fpick=null;after();palette();return}
-  const h=hit(t[0],t[1]);if(h&&h.t==='f'){snap();sel=h;const f=M.furn[h.i];fdrag={move:true,from:t,ox:f.x,oy:f.y};fsel=null;panel();renderAll();return}
-  sel=null;fsel=null;fdrag={box:[t,t]};panel();renderAll()},true);
+  const h=hit(t[0],t[1]);if(h&&h.t==='f'){snap();const f=M.furn[h.i];if(!fGroup().includes(f)){mset.clear();sel=h}fdrag={move:true,from:t,ox:f.x,oy:f.y,grp:fGroup().map(g=>[g,g.x,g.y])};fsel=null;fextra=[];panel();renderAll();return}
+  sel=null;fsel=null;fextra=[];mset.clear();fdrag={box:[t,t]};panel();renderAll()},true);
 stage.addEventListener('pointermove',e=>{if(!isIn()||!fdrag)return;const t=tileAt(e);
   if(fdrag.stamp){stampAt(t);return}
   if(fdrag.box){fdrag.box[1]=[Math.max(0,Math.min(M.w-1,t[0])),Math.max(0,Math.min(M.h-1,t[1]))];renderAll()}
-  else if(fdrag.move){const f=M.furn[sel.i];f.x=Math.max(0,Math.min(M.w-f.w,fdrag.ox+t[0]-fdrag.from[0]));f.y=Math.max(0,Math.min(M.h-f.h,fdrag.oy+t[1]-fdrag.from[1]));renderAll()}});
+  else if(fdrag.move){let dx=t[0]-fdrag.from[0],dy=t[1]-fdrag.from[1];for(const[g,x0,y0]of fdrag.grp){dx=Math.max(-x0,Math.min(M.w-g.w-x0,dx));dy=Math.max(-y0,Math.min(M.h-g.h-y0,dy))}
+    for(const[g,x0,y0]of fdrag.grp){g.x=x0+dx;g.y=y0+dy}renderAll()}});
 window.addEventListener('pointerup',()=>{if(!isIn()||!fdrag)return;const d=fdrag;fdrag=null;
   if(d.stamp){after();return}
   if(d.box){const[a,b]=d.box;fsel={x:Math.min(a[0],b[0]),y:Math.min(a[1],b[1]),w:Math.abs(a[0]-b[0])+1,h:Math.abs(a[1]-b[1])+1};palette();renderAll();return}
-  if(d.move){const f=M.furn[sel.i];if(f.x===d.ox&&f.y===d.oy)undo.pop();fSync();after()}});
+  if(d.move){if(d.grp.every(([g,x0,y0])=>g.x===x0&&g.y===y0))undo.pop();fSync();after()}});
 /* Select tool moves pieces too: keep walls in step after any drag */
 window.addEventListener('pointerup',()=>{if(isIn()&&M.furn&&M.furn.length){const before=JSON.stringify(M.coll);fSync();if(JSON.stringify(M.coll)!==before)after()}});
+window.addEventListener('keydown',e=>{if(!isIn()||e.target.matches('input,textarea,select')||!mset.size||!sel||sel.t!=='f')return;
+  if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();e.stopImmediatePropagation();snap();for(const f of fGroup()){if(f._ax!==undefined)fWalls(Object.assign({},f,{x:f._ax,y:f._ay,block:f._b}),false);M.furn.splice(M.furn.indexOf(f),1)}mset.clear();sel=null;after();return}
+  const d={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[e.key];if(!d)return;e.preventDefault();e.stopImmediatePropagation();const G=fGroup();
+  if(G.some(f=>f.x+d[0]<0||f.y+d[1]<0||f.x+f.w+d[0]>M.w||f.y+f.h+d[1]>M.h))return;snap();for(const f of G){f.x+=d[0];f.y+=d[1]}fSync();after()},true);
 window.addEventListener('keydown',e=>{if(!isIn()||e.target.matches('input,textarea,select')||!sel||sel.t!=='f')return;const d={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[e.key];if(!d)return;
   e.preventDefault();e.stopImmediatePropagation();snap();const f=M.furn[sel.i];f.x=Math.max(0,Math.min(M.w-f.w,f.x+d[0]));f.y=Math.max(0,Math.min(M.h-f.h,f.y+d[1]));fSync();after()},true);
 window.addEventListener('keydown',e=>{if(isIn()&&e.key==='Escape'&&(fsel||fpick)){fsel=null;fpick=null;palette();renderAll()}});
@@ -864,7 +875,14 @@ function detectPx0(d,tx,ty,OX,OY){const W=d.width,H=d.height,P=d.data,tw=Math.mi
   return{x:a0,y:b0,w:a1-a0+1,h:b1-b0+1}}
 /* in the Furniture tool a click (no drag) picks the whole piece; in Select, clicking furniture switches to the Furniture tool */
 let fGrowBase=null;
-stage.addEventListener('pointerdown',e=>{if(!isIn()||tool!=='furn'||!e.shiftKey||!fsel||fpick||stampOn||floorPicking)return;const t=tileAt(e);if(!inside(t))return;e.stopImmediatePropagation();
+stage.addEventListener('pointerdown',e=>{if(!isIn()||tool!=='furn'||!e.shiftKey||e.altKey||fpick||stampOn||floorPicking)return;const t=tileAt(e);if(!inside(t))return;e.stopImmediatePropagation();fnorm();
+  const h=hit(t[0],t[1]);
+  if(h&&h.t==='f'){const f=M.furn[h.i];fsel=null;fextra=[];if(!(sel&&sel.t==='f'&&M.furn[sel.i])){sel=h}else if(M.furn[sel.i]===f){const nx=[...mset][0];if(nx){mset.delete(nx);sel={t:'f',i:M.furn.indexOf(nx)}}else sel=null}else if(mset.has(f))mset.delete(f);else mset.add(f);panel();palette();renderAll();return}
+  const r=detectPiece(t[0],t[1])||{x:t[0],y:t[1],w:1,h:1};sel=null;mset.clear();
+  const inR=a=>t[0]>=a.x&&t[0]<a.x+a.w&&t[1]>=a.y&&t[1]<a.y+a.h;
+  if(!fsel)fsel=r;else if(inR(fsel)){fsel=fextra.shift()||null}else{const k=fextra.findIndex(inR);if(k>=0)fextra.splice(k,1);else fextra.push(r)}
+  panel();palette();renderAll()},true);
+stage.addEventListener('pointerdown',e=>{if(!isIn()||tool!=='furn'||!e.altKey||!fsel||fpick||stampOn||floorPicking)return;const t=tileAt(e);if(!inside(t))return;e.stopImmediatePropagation();e.preventDefault();
   const x0=Math.min(fsel.x,t[0]),y0=Math.min(fsel.y,t[1]),x1=Math.max(fsel.x+fsel.w-1,t[0]),y1=Math.max(fsel.y+fsel.h-1,t[1]);fsel={x:x0,y:y0,w:x1-x0+1,h:y1-y0+1};palette();renderAll()},true);
 window.addEventListener('pointerup',()=>setTimeout(()=>{if(!isIn()||!fsel||fsel.w!==1||fsel.h!==1||tool!=='furn')return;const r=detectPiece(fsel.x,fsel.y);if(r){fsel=r;palette();renderAll()}},0));
 stage.addEventListener('pointerdown',e=>{if(!isIn()||space||e.button!==0||tool!=='select')return;const t=tileAt(e);if(!inside(t)||hit(t[0],t[1]))return;
