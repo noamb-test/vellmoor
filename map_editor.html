@@ -94,7 +94,7 @@ label{display:block;color:var(--muted);font-size:11px;margin:8px 0 3px;text-tran
 const V=window.VME;
 const $=s=>document.querySelector(s);
 const TER=[['G','Grass','#79c98a'],['R','Path','#d8b77a'],['E','Tall grass','#2f8f55'],['T','Trees','#245c32'],['W','Water','#3d82d6'],['K','Cliff / wall','#8b6045'],
-  ['B','Sand','#efe0a8'],['F','Flowers','#f39ab8'],['D','Bridge / boardwalk','#a57a4c'],['S','Plaza (city style)','#c8c2b4']];
+  ['B','Sand','#efe0a8'],['F','Flowers','#f39ab8'],['D','Bridge / boardwalk','#a57a4c'],['S','Plaza (city style)','#c8c2b4'],['Z','Stairs (in a cliff)','#b9a37a']];
 const TERC=Object.fromEntries(TER.map(t=>[t[0],t]));
 const AREAN=['Hearthvale','Mistwood','Copperford','Saltmere Coast','Port Brinegate','Ironmarch Pass','Cinderhold','Ashfall Caldera','Fenhollow','Gloomfen','Galeholm','Skyway Ridge','Voltmark','Stormglass Flats','Briarhaven','Thornwood Deep','Nightcrest','The Long Stair','Skyreach Spire'];
 const D8=[[-1,-1],[0,-1],[1,-1],[-1,0],[1,0],[-1,1],[0,1],[1,1]],W8=[1,3,1,3,3,1,3,1];
@@ -154,24 +154,76 @@ function cornerTile(st,c,sig,q){const[a,b,d]=QN[q];const key=c+q+sig[a]+sig[b]+s
   for(const[own,P]of lists){for(const[sg,t,n]of(P._cidx[key]||[])){let v=own*2+Math.min(3,n)/10;for(let i=0;i<8;i++)if(sg[i]===sig[i])v+=W8[i];if(v>sc){sc=v;best=t}}if(best!==null&&own)break}
   if(best!==null)return best;
   for(const P of[st,...alts(st._name,c)]){const r=P.rules[c+'|'+c.repeat(8)];if(r)return r[0][0]}return null}
-function groundCls(x,y){x=Math.max(0,Math.min(M.w-1,x));y=Math.max(0,Math.min(M.h-1,y));let c=M.grid[y][x];if(c==='T')c='G';if(c==='S'&&M.style!=='a5')c='R';return c}
+function groundCls(x,y){x=Math.max(0,Math.min(M.w-1,x));y=Math.max(0,Math.min(M.h-1,y));let c=M.grid[y][x];if(c==='T')c='G';if(c==='Z')c='K';if(c==='S'&&M.style!=='a5')c='R';return c}
 function drawGround(){
   const key=M.style+'|'+M.grid.join('')+'|'+M.water;if(key===groundKey&&groundCache)return groundCache;
   const st=prep(M.style);const atlas=IMG.tiles_all;const cols=atlas.naturalWidth/16;
   const g=document.createElement('canvas');g.width=M.w*16;g.height=M.h*16;const c=g.getContext('2d');
+  const BO=bridgeDirs();
   const put=(t,sx,sy,sw,sh,dx,dy)=>c.drawImage(atlas,(t%cols)*16+sx,Math.floor(t/cols)*16+sy,sw,sh,dx,dy,sw,sh);
   for(let y=0;y<M.h;y++)for(let x=0;x<M.w;x++){
-    const cl=groundCls(x,y);const sig=D8.map(([dx,dy])=>groundCls(x+dx,y+dy));
+    if(M.grid[y][x]==='Z'){put(STAIR_TILE,0,0,16,16,x*16,y*16);continue}
+    if(M.grid[y][x]==='D'){put(bridgeTile(x,y,BO),0,0,16,16,x*16,y*16);continue}
+    const cl=groundCls(x,y);let sig=D8.map(([dx,dy])=>groundCls(x+dx,y+dy));
+    /* water is drawn plain and its shore is painted afterwards (shorePass), so edges always line up */
+    if(cl==='W'&&!wLegacy(x,y))sig=sig.map(()=>'W');else if(cl!=='W'&&cl!=='K'&&cl!=='D')sig=sig.map((q,i)=>(q==='W'&&!wLegacy(x+D8[i][0],y+D8[i][1]))||q==='D'?cl:q);
     let t=wholeTile(st,cl,sig,x,y);
+    if(t!==null&&STAIRS.has(t))t=noStairs(st,cl,sig,x,y);
+    if(cl==='K'&&sig[0]!=='K'&&sig[1]!=='K'&&sig[2]!=='K'&&sig[3]==='K'&&sig[4]==='K'&&sig[6]==='K')t=CLIFF_TOP[(x+y)%CLIFF_TOP.length];
     if(t===null&&!CORNER.has(cl))t=similar(st,cl,sig);
     if(t!==null&&t!==undefined){put(t,0,0,16,16,x*16,y*16);continue}
     if(CORNER.has(cl)){for(let q=0;q<4;q++){const ct=cornerTile(st,cl,sig,q);if(ct!==null)put(ct,QO[q][0],QO[q][1],8,8,x*16+QO[q][0],y*16+QO[q][1])}continue}
     c.fillStyle=TERC[cl]?TERC[cl][2]:'#555';c.fillRect(x*16,y*16,16,16)}
+  shorePass(c,g.width,g.height);
   if(M.water){const id=c.getImageData(0,0,g.width,g.height),d=id.data;const wc=hex(M.water);
     for(let y=0;y<M.h;y++)for(let x=0;x<M.w;x++)if(M.grid[y][x]==='W')for(let j=0;j<16;j++)for(let i=0;i<16;i++){const p=((y*16+j)*g.width+x*16+i)*4;const L=(d[p]+d[p+1]+d[p+2])/765;const f=.45+.9*L;d[p]=Math.min(255,wc[0]*f);d[p+1]=Math.min(255,wc[1]*f);d[p+2]=Math.min(255,wc[2]*f)}
     c.putImageData(id,0,0)}
   groundCache=g;groundKey=key;return g}
 function hex(h){return[1,3,5].map(i=>parseInt(h.slice(i,i+2),16))}
+/* ---------- shores: painted pixel by pixel so every shape (corners, notches, bends) lines up ----------
+   Water next to a cliff keeps the original cliff tiles (wLegacy). */
+/* stairs only where you paint them: the learned cliff edges sometimes picked a stairs tile */
+/* the top edge of a cliff: grass lip over rock (the learned tiles mixed in fences and stairs) */
+const CLIFF_TOP=[2890,1512];
+/* bridges and docks: planks run across the way you walk, nailed edges on the open sides */
+function bridgeDirs(){const W=M.w,H=M.h,o=new Uint8Array(W*H),seen=new Uint8Array(W*H);
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){if(seen[y*W+x]||M.grid[y][x]!=='D')continue;const q=[[x,y]],cells=[];seen[y*W+x]=1;let x0=x,x1=x,y0=y,y1=y;
+    while(q.length){const[a,b]=q.pop();cells.push([a,b]);x0=Math.min(x0,a);x1=Math.max(x1,a);y0=Math.min(y0,b);y1=Math.max(y1,b);
+      for(const[dx,dy]of[[1,0],[-1,0],[0,1],[0,-1]]){const nx=a+dx,ny=b+dy;if(nx<0||ny<0||nx>=W||ny>=H||seen[ny*W+nx]||M.grid[ny][nx]!=='D')continue;seen[ny*W+nx]=1;q.push([nx,ny])}}
+    /* which way you walk across: water above and below means you cross east-west */
+    let ns=0,ew=0;const isW=(a,b)=>a>=0&&b>=0&&a<W&&b<H&&M.grid[b][a]==='W';
+    for(const[a,b]of cells){if(isW(a,b-1))ns++;if(isW(a,b+1))ns++;if(isW(a-1,b))ew++;if(isW(a+1,b))ew++}
+    const v=ns===ew?((y1-y0)>=(x1-x0)?1:2):(ew>ns?1:2);for(const[a,b]of cells)o[b*W+a]=v}
+  return o}
+function bridgeTile(x,y,BO){const D=(a,b)=>a>=0&&b>=0&&a<M.w&&b<M.h&&M.grid[b][a]==='D';
+  if(BO[y*M.w+x]===1){const l=D(x-1,y),r=D(x+1,y);return l&&r?551:!l&&r?569:l&&!r?570:551}
+  const u=D(x,y-1),d=D(x,y+1);return u&&d?550:!u&&d?(x%2?648:647):u&&!d?(x%2?653:652):550}
+const STAIR_TILE=426,STAIRS=new Set([426,154,155,402,1930]);
+function noStairs(st,c,sig,x,y){const s=c+'|'+sig.join('');for(const P of[st,...alts(st._name,c)]){for(const k of[s+'|00',s+'|01',s+'|10',s+'|11',s]){const L=(P.rules[k]||[]).filter(t=>!STAIRS.has(t[0]));if(L.length)return L[0][0]}}return null}
+function cellAt(x,y){x=Math.max(0,Math.min(M.w-1,x));y=Math.max(0,Math.min(M.h-1,y));return M.grid[y][x]}
+function wLegacy(x,y){if(cellAt(x,y)!=='W')return false;for(const[dx,dy]of D8)if(cellAt(x+dx,y+dy)==='K')return true;return false}
+function shorePass(c,PW,PH){
+  const W=M.w,H=M.h;const kind=new Uint8Array(W*H);/* 0 land(grass etc) 1 sand 2 water(shore) 3 no-shore (legacy water, bridge, cliff) */
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){const q=M.grid[y][x];kind[y*W+x]=q==='W'?(wLegacy(x,y)?3:2):(q==='D'||q==='K')?3:q==='B'?1:0}
+  const K=(px,py)=>{const x=px>>4,y=py>>4;if(x<0||y<0||x>=W||y>=H)return 0;return kind[y*W+x]};
+  const id=c.getImageData(0,0,PW,PH),d=id.data;const R=7;
+  const set=(px,py,col)=>{const p=(py*PW+px)*4;d[p]=col[0];d[p+1]=col[1];d[p+2]=col[2];d[p+3]=255};
+  const hsh=(a,b)=>{let h=(a*374761393+b*668265263)^0x5bd1e995;h=(h^(h>>>13))*1274126177;return((h^(h>>>16))>>>0)/4294967296};
+  const TAN=[214,181,132],MID=[189,140,99],DARK=[132,90,82],FOAM=[206,230,255],LITE=[152,195,255],WET=[214,198,148],SFOAM=[226,240,255];
+  for(let cy=0;cy<H;cy++)for(let cx=0;cx<W;cx++){const k=kind[cy*W+cx];
+    let near=false;for(let dy=-1;dy<=1&&!near;dy++)for(let dx=-1;dx<=1;dx++){const nx=cx+dx,ny=cy+dy;if(nx<0||ny<0||nx>=W||ny>=H)continue;const o=kind[ny*W+nx];if((k===2&&o<2)||(k<2&&o===2)){near=true;break}}
+    if(!near)continue;
+    for(let j=0;j<16;j++)for(let i=0;i<16;i++){const px=cx*16+i,py=cy*16+j;let best=99,bk=0;
+      for(let dy=-R;dy<=R;dy++)for(let dx=-R;dx<=R;dx++){const dd=dx*dx+dy*dy;if(dd>=best)continue;const o=K(px+dx,py+dy);
+        if(k===2?(o<2):(o===2)){best=dd;bk=o}}
+      if(best===99)continue;const dist=Math.sqrt(best);
+      if(k===2){/* water pixel near land */
+        if(bk===1){if(dist<=1.5)set(px,py,SFOAM);else if(dist<=2.5&&hsh(px,py)<.6)set(px,py,SFOAM);else if(dist<=3.5)set(px,py,LITE)}
+        else{if(dist<=1.2)set(px,py,TAN);else if(dist<=2.2)set(px,py,MID);else if(dist<=4.2)set(px,py,DARK);else if(dist<=5.2)set(px,py,FOAM);else if(dist<=6.2)set(px,py,LITE)}}
+      else{/* land pixel near water */
+        if(k===1){if(dist<=1.5)set(px,py,WET)}
+        else{if(dist<=1.2)set(px,py,TAN);else if(dist<=2.2&&hsh(px,py)<.5)set(px,py,TAN)}}}}
+  c.putImageData(id,0,0)}
 /* trees planted on a 2x2 grid like the game does */
 function trees(){const done=new Set(),out=[];
   for(let y=0;y<M.h;y++)for(let x=0;x<M.w;x++){if(M.grid[y][x]!=='T'||done.has(x+','+y))continue;

@@ -13,7 +13,7 @@ const isMob=()=>pref==='mobile'||(pref!=='desktop'&&auto());
 /* ---------- styles ---------- */
 const css=document.createElement('style');css.textContent=`
 #stage{touch-action:none}
-#mbar,#mnav{display:none}
+#mbar,#mnav,.msheetH{display:none}
 body.mob,html:has(body.mob){height:100dvh}
 body.mob #app{grid-template-columns:1fr;grid-template-rows:auto 1fr auto auto;height:100dvh;padding-top:env(safe-area-inset-top)}
 body.mob #top{grid-column:1;overflow-x:auto;overflow-y:hidden;flex-wrap:nowrap;padding:6px 8px;gap:5px;scrollbar-width:none;min-height:46px}
