@@ -11706,6 +11706,67 @@ new MutationObserver(()=>{if(typeof B!=='undefined'&&B&&B.multi&&document.queryS
 :root[data-hgbg="1"] .rb.multi:not(.mold) .mslotCard.sel{filter:drop-shadow(0 0 calc(1.5*var(--p)) #ffe066) drop-shadow(0 0 calc(1.5*var(--p)) #ffe066)}
 :root[data-hgbg="1"] .rb.multi:not(.mold) .foeArt.tgt{filter:drop-shadow(0 0 calc(2*var(--p)) #ff5a5a)}
 `;document.head.appendChild(st)}
+/* ============ POKÉMON CENTERS: one shared set of walls, different people in each town ============
+   The walls come from the Hearthvale Pokémon Center made in the map maker. */
+const CENTER_COLL=["111111111111111110","111111111111111110","111111101111011010","111111001110011010","100000000000000010","100111111111100010","100000000000000010","100111111111100110","100111111111100110","100101110011100110","100101110011100110","100101110111000010","100101111111000010","100100000000000010","100100000000001110","100000000000001110","100000000000001110","100000000000001110","100000000000001110","110000000000000111","111111111111111111"];
+const CENTER_PEOPLE={
+  hv_center:null, /* Hearthvale keeps the people from the map maker */
+  a2_pewtercity_pokemoncenter_1f:[
+    ['hiker',3,15,'right',0,['I dig in the iron seams all day. My Pokémon find the good ore before I do.']],
+    ['worker',11,15,'left',0,['The ford runs red from all the rust. It’s why the town is called Copperford.']],
+    ['old_man',2,6,'down',0,['Garnet’s Gym is carved right into the hill. Rock Pokémon shrug off Normal moves, so bring Water, Grass or Fighting.']],
+    ['school_kid_f',10,18,'up',1,['When I grow up I want a Steel-type. They shine like the copper roofs!']]],
+  a4_vermilioncity_pokemoncenter_1f:[
+    ['sailor',4,14,'right',0,['Ships leave on the high tide. Not one of them sails toward the Spire, though.']],
+    ['fisherman',11,17,'left',0,['A fancy rod is nice. Patience is better.']],
+    ['beauty',11,6,'down',0,['Nerissa’s Water Pokémon hit hard. Grass or Electric moves are your best bet.']],
+    ['picnicker',4,18,'up',1,['I came for the fish market and stayed for the sea air.']]],
+  a6_saffroncity_pokemoncenter_1f:[
+    ['black_belt',4,14,'right',0,['The fortress walls stay warm all night. Fire Pokémon sleep like babies here.']],
+    ['ace_trainer_m',11,15,'left',0,['Cassius trains Fire types. Water, Ground and Rock moves cool them off fast.']],
+    ['old_woman',2,6,'down',0,['My family has lived on the caldera rim for six generations. The ground hums sometimes.']],
+    ['roughneck',10,18,'up',1,['Ashfall Caldera is past the gate. The wild Pokémon there don’t go easy on anyone.']]],
+  a8_fuchsiacity_pokemoncenter_1f:[
+    ['psychic',3,15,'right',0,['The lanterns at the Gym aren’t for light. They keep something out.']],
+    ['fisherman',11,14,'left',0,['Black water, stilt houses, and the best catfish you’ll ever eat.']],
+    ['hg_itako',11,6,'down',0,['Morwen’s Ghosts slip right past Normal and Fighting moves. Dark or Ghost moves will reach them.']],
+    ['school_kid_m',4,18,'up',1,['My big sister says Gloomfen is haunted. I’m not scared. Much.']]],
+  a10_threeisland_pokemoncenter_1f:[
+    ['guitarist',4,14,'right',0,['The windmills keep the whole town turning. I play along to the creaking.']],
+    ['ace_trainer_f',11,16,'left',0,['Wyn’s birds come at you in pairs. Electric, Ice and Rock moves bring them down.']],
+    ['sailor',2,6,'down',0,['Don’t look down from the rope bridges. Just don’t.']],
+    ['twin',10,18,'up',1,['The wind up here is so strong my Pidgey hardly has to flap!']]],
+  a12_celadoncity_pokemoncenter_1f:[
+    ['scientist_m',3,15,'right',0,['Every lightning rod in Voltmark feeds the city. We measure each strike.']],
+    ['ace_trainer_m',11,14,'left',0,['Ohmar’s Electric team can’t touch a Ground-type. Remember that.']],
+    ['socialite',11,6,'down',0,['The street lamps buzz all night. You stop hearing it after a week.']],
+    ['kid_with_nds',4,18,'up',1,['My game console charges itself if I hold it near the copper towers. Probably.']]],
+  a13_route10_pokemoncenter_1f:[
+    ['ruin_maniac',4,14,'right',0,['Lightning fused the sand out there into glass. Some pieces still have fossils inside.']],
+    ['pokefan_m',11,16,'left',0,['The old power plant is flooded now. Nobody goes in anymore.']],
+    ['hiker',2,6,'down',0,['Wear thick boots on the Flats. The glass rings under your feet and it’s sharp.']],
+    ['camper',10,18,'up',1,['I camped out to watch a lightning storm. My tent didn’t make it.']]],
+  a14_viridiancity_pokemoncenter_1f:[
+    ['pokemon_breeder_f',3,15,'right',0,['Grass Pokémon grow faster here than anywhere else. It’s all the vines.']],
+    ['gentleman',11,15,'left',0,['Sylvie says everything in Briarhaven grows back. Fire, Flying and Poison moves slow her team down.']],
+    ['parasol_lady',11,6,'down',0,['Vines climb every wall in town, and nobody minds. They’re part of the family.']],
+    ['bug_catcher',4,18,'up',1,['Thornwood Deep is full of Bug Pokémon. I’ve caught eleven kinds so far!']]],
+  a16_lavendertown_pokemoncenter_1f:[
+    ['hg_kimono',4,14,'right',0,['It’s always dusk in Nightcrest. We light lanterns for the travelers heading to the Spire.']],
+    ['ace_trainer_f',11,17,'left',0,['Vesper uses Dark Pokémon. Fighting, Bug and Fairy moves are what you want.']],
+    ['old_man',2,6,'down',0,['This is the last Gym before the Long Stair. Rest well. Many come back down.']],
+    ['lass',10,18,'up',1,['I saw stars at noon once. Nobody believes me.']]],
+};
+function centerApply(){
+  for(const[k,M]of Object.entries(OW_MAPS)){if(!M||M.title!=='Pokémon Center'||M.w!==18||M.h!==21)continue;
+    M.coll=CENTER_COLL.slice();
+    M.signs=M.signs||{};for(const[x,y]of[[15,15],[14,15],[15,4]])if(!M.signs[x+','+y])M.signs[x+','+y]=()=>['A tall, healthy plant.'];
+    const list=CENTER_PEOPLE[k];if(!list)continue;
+    /* keep the nurse, Pokémon, quests and story people; swap the generic visitors for this town's own */
+    M.npcs=(M.npcs||[]).filter(n=>n.role||n.mon||n.id||n.trainer||n.item||n.sheet==='pokecenter_nurse');
+    list.forEach(([sheet,x,y,dir,wander,L],i)=>{if(CENTER_COLL[y][x]!=='0'||M.npcs.some(n=>n.x===x&&n.y===y))return;
+      M.npcs.push({id:`${k}_local${i}`,sheet,x,y,dir,wander:!!wander,say:()=>L.slice()})})}}
+centerApply();
 buildPixelCache().then(npcInit,npcInit).then(titleScreen,titleScreen);
 </script>
 
