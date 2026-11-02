@@ -307,7 +307,9 @@ function collision(){const C=[];const tr=new Set();for(const[x,y]of trees())for(
     if(cov){for(const[a,c]of cov)block(a,c)}else for(const[dx,dy]of k.blocked)block(b.x+dx,b.y+dy);
     /* always keep the step in front of the door open */
     if(b.y+1<M.h&&!SOLID.has(M.grid[b.y+1][b.x]))C[b.y+1][b.x]=0}
-  for(const p of M.props)block(p.x,p.y);for(const s of M.signs)block(s.x,s.y);
+  /* props: tall ones (rocks) block everything they cover, the rest just their base */
+  for(const p of M.props){block(p.x,p.y);const P=V.props[p.prop];if(P&&P.h>40&&IMG.props&&IMG.props.naturalWidth){const cov=coverTiles(IMG.props,P.sx,P.sy,P.w,P.h,p.x*16-P.ax,p.y*16-P.ay,.3);if(cov)for(const[a,c]of cov)block(a,c)}}
+  for(const s of M.signs)block(s.x,s.y);
   if(M.collFix)for(const[k,v]of Object.entries(M.collFix)){const[x,y]=k.split(',').map(Number);if(x>=0&&y>=0&&x<M.w&&y<M.h)C[y][x]=v?1:0}
   return C}
 function blockAt(t){if(!inside(t)||!drag)return;const k=t[0]+','+t[1];if(drag.seen.has(k))return;drag.seen.add(k);M.collFix=M.collFix||{};
