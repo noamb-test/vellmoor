@@ -169,13 +169,15 @@ function drawGround(){
     if(cl==='W'&&!wLegacy(x,y))sig=sig.map(()=>'W');else if(cl!=='W'&&cl!=='K'&&cl!=='D')sig=sig.map((q,i)=>(q==='W'&&!wLegacy(x+D8[i][0],y+D8[i][1]))||q==='D'?cl:q);
     /* paths are drawn plain and their grassy edge is painted afterwards (pathPass) */
     if(PATHY.has(M.grid[y][x])&&cl==='R')sig=sig.map(()=>'R');else if(GREEN.has(M.grid[y][x]))sig=sig.map(q=>q==='R'?cl:q);
+    if(cl==='E')sig=sig.map(q=>q==='G'||q==='F'?'E':q);else if(cl==='G'||cl==='F')sig=sig.map(q=>q==='E'||q==='B'?cl:q);else if(cl==='B')sig=sig.map(q=>q==='G'||q==='F'||q==='E'?'B':q);
     let t=wholeTile(st,cl,sig,x,y);
     if(t!==null&&STAIRS.has(t))t=noStairs(st,cl,sig,x,y);
-    if(cl==='K'&&sig[0]!=='K'&&sig[1]!=='K'&&sig[2]!=='K'&&sig[3]==='K'&&sig[4]==='K'&&sig[6]==='K')t=CLIFF_TOP[(x+y)%CLIFF_TOP.length];
+    if(cl==='K'&&!sig.includes('W')){cliffQuarters(c,atlas,cols,st,x,y,sig);continue}
     if(t===null&&!CORNER.has(cl))t=similar(st,cl,sig);
     if(t!==null&&t!==undefined){put(t,0,0,16,16,x*16,y*16);continue}
     if(CORNER.has(cl)){for(let q=0;q<4;q++){const ct=cornerTile(st,cl,sig,q);if(ct!==null)put(ct,QO[q][0],QO[q][1],8,8,x*16+QO[q][0],y*16+QO[q][1])}continue}
     c.fillStyle=TERC[cl]?TERC[cl][2]:'#555';c.fillRect(x*16,y*16,16,16)}
+  patchPass(c,g.width,g.height,'E',[[64,150,104],[88,176,132]],null);patchPass(c,g.width,g.height,'B',[[176,176,128],[150,200,150]],[206,190,140]);
   pathPass(c,g.width,g.height);shorePass(c,g.width,g.height);
   if(M.water){const id=c.getImageData(0,0,g.width,g.height),d=id.data;const wc=hex(M.water);
     for(let y=0;y<M.h;y++)for(let x=0;x<M.w;x++)if(M.grid[y][x]==='W')for(let j=0;j<16;j++)for(let i=0;i<16;i++){const p=((y*16+j)*g.width+x*16+i)*4;const L=(d[p]+d[p+1]+d[p+2])/765;const f=.45+.9*L;d[p]=Math.min(255,wc[0]*f);d[p+1]=Math.min(255,wc[1]*f);d[p+2]=Math.min(255,wc[2]*f)}
@@ -187,6 +189,17 @@ function hex(h){return[1,3,5].map(i=>parseInt(h.slice(i,i+2),16))}
 /* stairs only where you paint them: the learned cliff edges sometimes picked a stairs tile */
 /* the top edge of a cliff: grass lip over rock (the learned tiles mixed in fences and stairs) */
 const CLIFF_TOP=[2890,1512];
+/* cliff pieces: top edge, bottom face, sides and bottom corners; top corners are built from a side piece with the grass lip laid over it */
+const CLF={N:[2890,1512],S:[102,103],W:[134,138],E:[120,124],SW:[101],SE:[771]};
+function cliffQuarters(c,atlas,cols,st,x,y,sig){const isK=q=>q==='K';const put=(t,sx,sy,dx,dy)=>c.drawImage(atlas,(t%cols)*16+sx,Math.floor(t/cols)*16+sy,8,8,dx,dy,8,8);
+  const pick=a=>a[(x*7+y*3)%a.length];const inner=[87,88,89,90][(x*5+y*11)%4];
+  for(let q=0;q<4;q++){const[a,b,d]=QN[q];const[ox,oy]=QO[q];const top=q<2,left=q%2===0;const va=isK(sig[a]),hb=isK(sig[b]);const dx=x*16+ox,dy=y*16+oy;
+    let t;if(va&&hb)t=inner;else if(!va&&hb)t=pick(top?CLF.N:CLF.S);else if(va&&!hb)t=pick(left?CLF.W:CLF.E);
+    else{if(!top)t=pick(left?CLF.SW:CLF.SE);else{put(pick(left?CLF.W:CLF.E),ox,oy,dx,dy);/* grass lip on top */
+        const n=pick(CLF.N),A=alphaOf(atlas);if(A.d){const id=c.getImageData(dx,dy,8,8);for(let j=0;j<8;j++)for(let i=0;i<8;i++){const sx=(n%cols)*16+ox+i,sy=Math.floor(n/cols)*16+oy+j,p=(sy*A.w+sx)*4,r=A.d[p],g=A.d[p+1],bb=A.d[p+2];
+          const lip=g>r+15&&g>bb-10;const edgeIn=left?(i<3+((j*5)%3)):(i>4-((j*5)%3));if(lip||(j<2&&edgeIn)){const o=(j*8+i)*4;const src=lip?[r,g,bb]:[115,222,173];id.data[o]=src[0];id.data[o+1]=src[1];id.data[o+2]=src[2];id.data[o+3]=255}}
+          c.putImageData(id,dx,dy)}continue}}
+    put(t,ox,oy,dx,dy)}}
 /* bridges and docks: planks run across the way you walk, nailed edges on the open sides */
 function bridgeDirs(){const W=M.w,H=M.h,o=new Uint8Array(W*H),seen=new Uint8Array(W*H);
   for(let y=0;y<H;y++)for(let x=0;x<W;x++){if(seen[y*W+x]||M.grid[y][x]!=='D')continue;const q=[[x,y]],cells=[];seen[y*W+x]=1;let x0=x,x1=x,y0=y,y1=y;
@@ -206,7 +219,7 @@ function noStairs(st,c,sig,x,y){const s=c+'|'+sig.join('');for(const P of[st,...
 const PATHY=new Set(['R','S']),GREEN=new Set(['G','F','E','T']);
 function pathPass(c,PW,PH){if(M.style==='a5')return;
   /* how much path is around each pixel (a 9x9 box): thresholding it rounds the corners, and the edge bands follow it */
-  const W=M.w,H=M.h;const kind=new Uint8Array(W*H);for(let y=0;y<H;y++)for(let x=0;x<W;x++){const q=M.grid[y][x];kind[y*W+x]=PATHY.has(q)||q==='D'?1:GREEN.has(q)?2:0}
+  const W=M.w,H=M.h;const kind=new Uint8Array(W*H);for(let y=0;y<H;y++)for(let x=0;x<W;x++){const q=M.grid[y][x];kind[y*W+x]=PATHY.has(q)?1:GREEN.has(q)?2:0}
   const S=new Uint32Array((PW+1)*(PH+1));
   for(let y=0;y<PH;y++){let row=0;for(let x=0;x<PW;x++){row+=kind[(y>>4)*W+(x>>4)]===1?1:0;S[(y+1)*(PW+1)+x+1]=S[y*(PW+1)+x+1]+row}}
   const R=4,A=(2*R+1)*(2*R+1);
@@ -225,6 +238,25 @@ function pathPass(c,PW,PH){if(M.style==='a5')return;
           if(ac.d&&pathTile!==null){const sx=(pathTile%cols)*16+(px&15),sy=Math.floor(pathTile/cols)*16+(py&15),q=(sy*ac.w+sx)*4;set(px,py,[ac.d[q],ac.d[q+1],ac.d[q+2]])}}
         else if(f>.3)set(px,py,RIM);else if(f>.12)set(px,py,DG);else if(f>.04)set(px,py,MG)}
       else if(k===1){if(f<=.5){/* path pixel that becomes grass (rounded corner) */set(px,py,RIM)}else if(f<.6)set(px,py,PE)}}}
+  c.putImageData(id,0,0)}
+/* tall grass and sand on grass: rounded, matching edges painted pixel by pixel */
+function patchPass(c,PW,PH,code,outside,inside){
+  const W=M.w,H=M.h;const kind=new Uint8Array(W*H);/* 1 patch 2 grass 0 other */
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){const q=M.grid[y][x];kind[y*W+x]=q===code?1:(q==='G'||q==='F'||q==='T')?2:0}
+  const S=new Uint32Array((PW+1)*(PH+1));
+  for(let y=0;y<PH;y++){let row=0;for(let x=0;x<PW;x++){row+=kind[(y>>4)*W+(x>>4)]===1?1:0;S[(y+1)*(PW+1)+x+1]=S[y*(PW+1)+x+1]+row}}
+  const R=3;const frac=(x,y)=>{const x0=Math.max(0,x-R),y0=Math.max(0,y-R),x1=Math.min(PW,x+R+1),y1=Math.min(PH,y+R+1);return(S[y1*(PW+1)+x1]-S[y0*(PW+1)+x1]-S[y1*(PW+1)+x0]+S[y0*(PW+1)+x0])/((x1-x0)*(y1-y0))};
+  const st=prep(M.style);const tile=k=>{const r=st.rules[k+'|'+k.repeat(8)];return r?r[0][0]:null};const tp=tile(code),tg=tile('G');
+  const atlas=IMG.tiles_all,cols=atlas.naturalWidth/16,A=alphaOf(atlas);if(!A.d||tp===null||tg===null)return;
+  const id=c.getImageData(0,0,PW,PH),d=id.data;const hsh=(a,b)=>{let h=(a*374761393+b*668265263)^0x5bd1e995;h=(h^(h>>>13))*1274126177;return((h^(h>>>16))>>>0)/4294967296};
+  const copy=(px,py,t)=>{const sx=(t%cols)*16+(px&15),sy=Math.floor(t/cols)*16+(py&15),q=(sy*A.w+sx)*4,p=(py*PW+px)*4;d[p]=A.d[q];d[p+1]=A.d[q+1];d[p+2]=A.d[q+2];d[p+3]=255};
+  const set=(px,py,col)=>{const p=(py*PW+px)*4;d[p]=col[0];d[p+1]=col[1];d[p+2]=col[2];d[p+3]=255};
+  for(let cy=0;cy<H;cy++)for(let cx=0;cx<W;cx++){const k=kind[cy*W+cx];if(!k)continue;
+    let near=false;for(let dy=-1;dy<=1&&!near;dy++)for(let dx=-1;dx<=1;dx++){const nx=cx+dx,ny=cy+dy;if(nx<0||ny<0||nx>=W||ny>=H)continue;const o=kind[ny*W+nx];if(o&&o!==k){near=true;break}}
+    if(!near)continue;
+    for(let j=0;j<16;j++)for(let i=0;i<16;i++){const px=cx*16+i,py=cy*16+j;const f=frac(px,py)+(hsh(px>>1,py>>1)-.5)*.12;
+      if(f>.5){if(k===2)copy(px,py,tp);if(inside&&f<.62)set(px,py,inside)}
+      else{if(k===1)copy(px,py,tg);if(f>.32)set(px,py,outside[0]);else if(f>.18)set(px,py,outside[1])}}}
   c.putImageData(id,0,0)}
 function cellAt(x,y){x=Math.max(0,Math.min(M.w-1,x));y=Math.max(0,Math.min(M.h-1,y));return M.grid[y][x]}
 function wLegacy(x,y){if(cellAt(x,y)!=='W')return false;for(const[dx,dy]of D8)if(cellAt(x+dx,y+dy)==='K')return true;return false}
@@ -264,7 +296,7 @@ function coverTiles(img,sx,sy,w,h,dx,dy,min){const A=alphaOf(img);if(!A.d)return
   for(let j=0;j<h;j++)for(let i=0;i<w;i++){if(A.d[((sy+j)*A.w+sx+i)*4+3]<200)continue;const tx=Math.floor((dx+i)/16),ty=Math.floor((dy+j)/16),k=tx+','+ty;cnt[k]=(cnt[k]||0)+1}
   return Object.entries(cnt).filter(([,n])=>n>=min*256).map(([k])=>k.split(',').map(Number))}
 function collision(){const C=[];const tr=new Set();for(const[x,y]of trees())for(const[a,b]of[[0,0],[1,0],[0,1],[1,1]])tr.add((x+a)+','+(y+b));
-  for(let y=0;y<M.h;y++){C.push([]);for(let x=0;x<M.w;x++){const q=M.grid[y][x];C[y].push(q==='T'?(tr.has(x+','+y)&&x>=2&&y>=2&&x<M.w-2&&y<M.h-2?0:1):SOLID.has(q)?1:0)}}
+  for(let y=0;y<M.h;y++){C.push([]);for(let x=0;x<M.w;x++){const q=M.grid[y][x];C[y].push(q==='T'?((x>=2&&y>=2&&x<M.w-2&&y<M.h-2)?0:1):SOLID.has(q)?1:0)}}
   const block=(x,y)=>{if(x>=0&&y>=0&&x<M.w&&y<M.h)C[y][x]=1};
   /* trees: block what the tree picture covers (it is drawn a row higher than its grid squares) */
   {const st=M.treeArea!=null?('a'+M.treeArea):M.style;const tImg=IMG['tree_'+(IMG['tree_'+st]?st:M.style)]||IMG.tree_a2;const tMeta=(V.styles[st]||V.styles[M.style]).tree||V.styles.a2.tree;
