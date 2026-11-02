@@ -11792,7 +11792,7 @@ centerApply();
   M.vmHoles=[{x:9,y:13,w:1,h:1,fx:8,fy:13},{x:7,y:13,w:1,h:1,fx:7,fy:12},{x:11,y:10,w:1,h:1,fx:12,fy:10},{x:10,y:10,w:1,h:1,fx:10,fy:11}];M.vmFurn=[];
   /* people: trainers stand where they watch each tunnel */
   const by=f=>M.npcs.find(f);const mv=(n,x,y,dir)=>{if(n){n.x=x;n.y=y;n.dir=dir}};
-  mv(by(n=>n.id==='a2_gym_gt'),11,12,'left');{const gt=by(n=>n.id==='a2_gym_gt');if(gt&&!gt.sheet)gt.sheet='roughneck'}mv(by(n=>n.id==='a2_gym_e2'),3,8,'right');mv(by(n=>n.id==='a2_gym_e3'),12,9,'left');
+  mv(by(n=>n.id==='a2_gym_gt'),11,12,'left');{const gt=by(n=>n.id==='a2_gym_gt');if(gt&&!gt.sheet)gt.sheet='roughneck'}mv(by(n=>n.id==='a2_gym_e2'),3,8,'right');mv(by(n=>n.id==='a2_gym_e3'),12,8,'left');
   const guide=by(n=>n.sheet==='gym_guide');if(guide){const L0=guide.say;guide.say=()=>['Hey, champ in the making! This gym is an old copper mine.','Walk into a boulder to push it. Drop one into a pit and it fills the hole so you can cross.','See a cracked rock? Your partner can smash it.','If you get stuck, step outside and everything resets.']}
   M.npcs=M.npcs.filter(n=>n.role!=='boulder');
   const S=pzs;
@@ -11800,7 +11800,7 @@ centerApply();
   const pit=(id,x,y)=>({id,sheet:'pit',x,y,dir:'down',role:'pit',show:()=>!S().filled.has(id),say:()=>['A deep pit. You can’t see the bottom.','Something heavy might fill it…']});
   const crack=(id,x,y)=>({id,sheet:'crackrock',x,y,dir:'down',role:'crack',show:()=>!S().smashed.has(id),say:()=>['A cracked boulder. It looks like it could break.'],
     then:()=>{const P=state.party.find(m=>m.hp>0);if(!P)return;owChoose([`Have ${nm(P)} smash it`,'Leave it'],c=>{if(c!==0)return;const K=OWK;S().smashed.add(id);if(K)K.npcs=K.npcs.filter(o=>o.id!==id);owPzSfx();owSay([`${nm(P)} used Rock Smash!`,'The cracked boulder crumbled to pieces.'])})}});
-  M.npcs.push(boulder('gb_entry',7,13),boulder('gb_mid',4,11),boulder('gb_top',10,8),
+  M.npcs.push(boulder('gb_entry',7,13),boulder('gb_mid',4,11),boulder('gb_top',9,8),
     pit('gp_mid',4,10),pit('gp_top',7,7),crack('gc_mid',10,10));
 }}
 /* boulders drop into pits */
