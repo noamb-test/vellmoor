@@ -230,9 +230,25 @@ function trees(){const done=new Set(),out=[];
     if(x+1<M.w&&y+1<M.h&&[[0,0],[1,0],[0,1],[1,1]].every(([a,b])=>M.grid[y+b][x+a]==='T'&&!done.has((x+a)+','+(y+b)))){out.push([x,y]);for(const[a,b]of[[0,0],[1,0],[0,1],[1,1]])done.add((x+a)+','+(y+b))}}
   return out}
 /* ---------- collision (what the game will treat as walls) ---------- */
-function collision(){const C=[];for(let y=0;y<M.h;y++){C.push([]);for(let x=0;x<M.w;x++)C[y].push(SOLID.has(M.grid[y][x])?1:0)}
+/* walls follow the pictures: a tile is blocked when the building or tree drawn over it covers most of it */
+const _alpha={};
+function alphaOf(img){const k=img.src.slice(-40)+img.naturalWidth;if(_alpha[k])return _alpha[k];const c=document.createElement('canvas');c.width=img.naturalWidth;c.height=img.naturalHeight;const x=c.getContext('2d');x.drawImage(img,0,0);
+  let d=null;try{d=x.getImageData(0,0,c.width,c.height).data}catch(e){}return _alpha[k]={w:c.width,d}}
+function coverTiles(img,sx,sy,w,h,dx,dy,min){const A=alphaOf(img);if(!A.d)return null;const cnt={};
+  for(let j=0;j<h;j++)for(let i=0;i<w;i++){if(A.d[((sy+j)*A.w+sx+i)*4+3]<200)continue;const tx=Math.floor((dx+i)/16),ty=Math.floor((dy+j)/16),k=tx+','+ty;cnt[k]=(cnt[k]||0)+1}
+  return Object.entries(cnt).filter(([,n])=>n>=min*256).map(([k])=>k.split(',').map(Number))}
+function collision(){const C=[];const tr=new Set();for(const[x,y]of trees())for(const[a,b]of[[0,0],[1,0],[0,1],[1,1]])tr.add((x+a)+','+(y+b));
+  for(let y=0;y<M.h;y++){C.push([]);for(let x=0;x<M.w;x++){const q=M.grid[y][x];C[y].push(q==='T'?(tr.has(x+','+y)&&x>=2&&y>=2&&x<M.w-2&&y<M.h-2?0:1):SOLID.has(q)?1:0)}}
   const block=(x,y)=>{if(x>=0&&y>=0&&x<M.w&&y<M.h)C[y][x]=1};
-  for(const b of M.buildings){const k=V.kits[b.kit];if(!k)continue;block(b.x,b.y);for(const[dx,dy]of k.blocked)block(b.x+dx,b.y+dy)}
+  /* trees: block what the tree picture covers (it is drawn a row higher than its grid squares) */
+  {const st=M.treeArea!=null?('a'+M.treeArea):M.style;const tImg=IMG['tree_'+(IMG['tree_'+st]?st:M.style)]||IMG.tree_a2;const tMeta=(V.styles[st]||V.styles[M.style]).tree||V.styles.a2.tree;
+    for(const[x,y]of trees()){const cov=tImg&&tImg.naturalWidth?coverTiles(tImg,0,0,tImg.naturalWidth,tImg.naturalHeight,x*16-tMeta.ax,y*16-tMeta.ay,.35):null;
+      if(cov)for(const[a,b]of cov)block(a,b);else for(const[a,b]of[[0,0],[1,0],[0,1],[1,1]])block(x+a,y+b)}}
+  for(const b of M.buildings){const k=V.kits[b.kit];if(!k)continue;block(b.x,b.y);
+    const cov=IMG.kits&&IMG.kits.naturalWidth?coverTiles(IMG.kits,k.sx,k.sy,k.w,k.h,b.x*16-k.ax,b.y*16-k.ay,.3):null;
+    if(cov){for(const[a,c]of cov)block(a,c)}else for(const[dx,dy]of k.blocked)block(b.x+dx,b.y+dy);
+    /* always keep the step in front of the door open */
+    if(b.y+1<M.h&&!SOLID.has(M.grid[b.y+1][b.x]))C[b.y+1][b.x]=0}
   for(const p of M.props)block(p.x,p.y);for(const s of M.signs)block(s.x,s.y);
   if(M.collFix)for(const[k,v]of Object.entries(M.collFix)){const[x,y]=k.split(',').map(Number);if(x>=0&&y>=0&&x<M.w&&y<M.h)C[y][x]=v?1:0}
   return C}
