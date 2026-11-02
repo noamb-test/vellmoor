@@ -11966,6 +11966,106 @@ function fossilQuestStart(){if(!state.quests.active.includes('fossil1')&&!state.
 {const M=OW_MAPS.a2_pewtercity_museum_1f;if(M)for(const id of['mus_fossil','mus_reviver']){const n=M.npcs.find(x=>x.id===id);if(!n)continue;
   const s0=n.say,t0=n.then;n.say=function(){fossilQuestStart();return s0.apply(this,arguments)};
   n.then=function(){const r=t0&&t0.apply(this,arguments);setTimeout(()=>{try{questTick()}catch(e){}},50);return r}}}
+/* ============ SUMMARY SCREEN: the real HeartGold/SoulSilver layout ============
+   The frame is the game's own screen (sprites/ui/hgss/summary/template.png, 256x384 = both DS screens);
+   text, the Pokémon, the party slots and the tabs are drawn on top at DS pixel positions. */
+const HGX='sprites/ui/hgss/summary/';
+/* positions are written in DS pixels and converted to the screen's scale */
+function hgxFix(root){root.querySelectorAll('.hx').forEach(e=>{for(const p of['left','top','width']){const v=e.style[p];if(v&&v.endsWith('px'))e.style[p]=`calc(${parseFloat(v)} * var(--u))`}})}
+const CHARACTERISTICS={hp:['Loves to eat.','Takes plenty of siestas.','Nods off a lot.','Scatters things often.','Likes to relax.'],
+  atk:['Proud of its power.','Likes to thrash about.','A little quick tempered.','Likes to fight.','Quick tempered.'],
+  def:['Sturdy body.','Capable of taking hits.','Highly persistent.','Good endurance.','Good perseverance.'],
+  spa:['Highly curious.','Mischievous.','Thoroughly cunning.','Often lost in thought.','Very finicky.'],
+  spd:['Strong willed.','Somewhat vain.','Strongly defiant.','Hates to lose.','Somewhat stubborn.'],
+  spe:['Likes to run.','Alert to sounds.','Impetuous and silly.','Somewhat of a clown.','Quick to flee.']};
+function hgxChar(m){const iv=m.iv||{};let best='hp',bv=-1;for(const k of['hp','atk','def','spe','spa','spd']){const v=iv[k]??0;if(v>bv){bv=v;best=k}}return CHARACTERISTICS[best][bv%5]}
+const MONTHS=['Jan.','Feb.','Mar.','Apr.','May','June','July','Aug.','Sep.','Oct.','Nov.','Dec.'];
+function hgxDate(t){const d=new Date(t);return`${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`}
+/* where and when a Pokémon was met: recorded when it's created; older ones get today and the current town */
+function monMet(m){if(!m.met){m.met={t:Date.now(),place:(AREAS[state&&state.loc]||AREAS[0]).n,lvl:m.lvl}}return m.met}
+{const _mk2=makeMon;makeMon=function(){const m=_mk2.apply(this,arguments);try{monMet(m)}catch(e){}return m}}
+function trainerId(){if(!state.tid){state.tid=10000+Math.floor(Math.random()*55535);save()}return String(state.tid).padStart(5,'0')}
+function hgxWrap(t,n){const w=String(t).split(' '),out=[];let l='';for(const x of w){if((l+' '+x).trim().length>n){out.push(l);l=x}else l=(l+' '+x).trim()}if(l)out.push(l);return out}
+let HGX_PAGE=0;
+const HGX_TITLES=['TRAINER MEMO','POKéMON SKILLS','BATTLE MOVES'];
+function hgxContent(m,page){const sp=SP[m.sp],s=stats(m),nat=m.nature||'Hardy',nd=NATURES[nat]||[];ensureMoves(m);const met=monMet(m);
+  const ab=abil(m),abN=(typeof AB_NAME!=='undefined'&&AB_NAME[ab])||ab||'—',abD=(typeof AB_DESC!=='undefined'&&AB_DESC[ab])||'';
+  const R=(t)=>`<span class="hxRed">${t}</span>`,B=(t)=>`<span class="hxBlue">${t}</span>`;
+  const nxt=m.lvl>=100?0:Math.max(0,expAt(m.sp,m.lvl+1)-m.exp),base=expAt(m.sp,m.lvl),ef=m.lvl>=100?1:Math.max(0,Math.min(1,(m.exp-base)/Math.max(1,expAt(m.sp,m.lvl+1)-base)));
+  let memo=[],rows=[],wide=[];
+  if(page===0){memo=[`${R(nat)} nature.`,hgxDate(met.t),R(met.place),`Met at Lv. ${met.lvl}.`,'',hgxChar(m)];
+    rows=[['Dex No.',m.sp.slice(1)],['Name',sp.n.toUpperCase()],['Type',sp.types.map(hgxType).join('')],['OT',B(P().name)],['ID No.',trainerId()]];
+    wide=[['Exp. Points',m.exp],['To Next Lv.',nxt]]}
+  else if(page===1){memo=[`Ability: ${R(abN)}`,...hgxWrap(abD,24).slice(0,4)];while(memo.length<6)memo.push('');memo.push(hgxChar(m));
+    const lab=(k,t)=>k===nd[0]?R(t):k===nd[1]?B(t):t;
+    rows=[['HP',`${Math.max(0,m.hp)}/${s.maxhp}`],[lab('atk','Attack'),s.atk],[lab('def','Defense'),s.def],[lab('spa','Sp. Atk'),s.spa],[lab('spd','Sp. Def'),s.spd]];
+    wide=[[lab('spe','Speed'),s.spe],['Nature',nat]]}
+  else{for(const id of m.moves.slice(0,4)){const v=MV[id];memo.push(`${hgxType(v.t)} ${v.n}`);memo.push(`<span class="hxSmall">PP ${m.pp[id]??v.pp}/${v.pp}${v.pow?` · Pow ${v.pow}`:''}${v.acc?` · Acc ${v.acc}`:''}</span>`)}
+    while(memo.length<8)memo.push('—','');
+    rows=[['Dex No.',m.sp.slice(1)],['Name',sp.n.toUpperCase()],['Type',sp.types.map(hgxType).join('')],['Ability',abN],['Item',m.item?heldN(m):'None']];
+    wide=[['Height',sp._h?(sp._h/10).toFixed(1)+' m':'—'],['Weight',sp._w?(sp._w/10).toFixed(1)+' kg':'—']]}
+  return{memo,rows,wide,ef}}
+function hgxType(t){return`<i class="hxType" style="--tc:${HG_TYPE[t]||'#888'}">${String(t).toUpperCase()}</i>`}
+ptSummary=function(m){const prev=PTU.keys;const wrap=document.createElement('div');wrap.className='hxWrap';
+  const el=document.createElement('div');el.className='hxSum';wrap.appendChild(el);
+  const draw=()=>{const c=hgxContent(m,HGX_PAGE),sp=SP[m.sp];const pi=state.party.indexOf(m);
+    const slots=[[166,234],[206,242],[166,266],[206,274],[166,298],[206,306]];
+    el.innerHTML=`<img class="hxBg" src="${HGX}template.png" alt="">
+      <div class="hx hxTitle" style="left:160px;top:9px">${HGX_TITLES[HGX_PAGE]}</div>
+      <div class="hx hxName" style="left:176px;top:32px">${nm(m).toUpperCase()}</div><div class="hx" style="left:240px;top:34px">${gsym(m)}</div>
+      <div class="hx hxLv" style="left:165px;top:48px"><small>Lv.</small>${m.lvl}</div>
+      <div class="hx hxArt">${monSprite(m)}</div>
+      <div class="hx hxDark" style="left:160px;top:177px">${m.item?heldN(m):'None'}</div>
+      ${c.memo.map((t,i)=>`<div class="hx hxDark hxMemo" style="left:8px;top:${24+i*16}px">${t}</div>`).join('')}
+      ${c.rows.map((r,i)=>`<div class="hx hxLab" style="left:8px;top:${199+i*16}px">${r[0]}</div><div class="hx hxDark hxVal" style="left:72px;top:${199+i*16}px">${r[1]}</div>`).join('')}
+      ${c.wide.map((r,i)=>`<div class="hx hxLab" style="left:8px;top:${279+i*32}px">${r[0]}</div><div class="hx hxDark hxNum" style="left:72px;top:${295+i*32}px">${r[1]}</div>`).join('')}
+      <i class="hx hxExp" style="left:70px;top:346px;width:${Math.round(c.ef*67)}px"></i>
+      ${slots.map(([x,y],i)=>{const p=state.party[i];return`<div class="hx hxSlot${i===pi?' on':''}" data-s="${i}" style="left:${x}px;top:${y}px">${p?ptMonIcon(p):''}</div>`}).join('')}
+      ${[0,1,2].map(i=>`<div class="hx hxTab" data-p="${i}" style="left:${3+i*48}px;top:357px;background-image:url('${HGX}${i===HGX_PAGE?'tab_on':'tab_off'}.png')"><img src="${HGX}${['ico_info','ico_skills','ico_ribbon'][i]}.png" alt=""></div>`).join('')}
+      <img class="hx" src="${HGX}notch.png" style="left:${16+HGX_PAGE*48}px;top:348px;width:18px" alt="">
+      <div class="hx hxCancel" style="left:192px;top:356px"></div>`;
+    hgxFix(el);
+    el.querySelectorAll('[data-p]').forEach(t=>t.onclick=e=>{e.stopPropagation();HGX_PAGE=+t.dataset.p;draw()});
+    el.querySelectorAll('[data-s]').forEach(t=>t.onclick=e=>{e.stopPropagation();const p=state.party[+t.dataset.s];if(p&&p!==m){done();ptSummary(p)}});
+    el.querySelector('.hxCancel').onclick=e=>{e.stopPropagation();done()}};
+  document.body.appendChild(wrap);const done=()=>{wrap.remove();PTU.keys=prev};draw();
+  wrap.onclick=e=>{if(e.target===wrap)done()};
+  PTU.keys=k=>{if(k==='b')return done();if(k==='a'||k==='right'){HGX_PAGE=(HGX_PAGE+1)%3;return draw()}if(k==='left'){HGX_PAGE=(HGX_PAGE+2)%3;return draw()}
+    if((k==='up'||k==='down')&&state.party.length>1){const i=state.party.indexOf(m);if(i<0)return;const j=(i+(k==='up'?-1:1)+state.party.length)%state.party.length;
+      done();if(typeof PP!=='undefined'&&PP){PP.sel=j;if(typeof ppDraw==='function')ppDraw()}ptSummary(state.party[j])}}};
+{const st=document.createElement('style');st.textContent=`
+.hxWrap{position:fixed;inset:0;z-index:60;background:#000b;display:grid;place-items:center}
+.hxSum{position:relative;width:min(100vw,calc(100dvh * 256 / 384),768px);aspect-ratio:256/384;container-type:inline-size;font-family:'Vellmoor DS','Vellmoor FRLG',monospace;-webkit-font-smoothing:none;user-select:none;-webkit-user-select:none;--u:calc(100cqw / 256);--q:var(--u)}
+.hxBg{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated}
+.hxSum .hx{position:absolute;font-size:calc(16*var(--u));line-height:calc(16*var(--u));white-space:nowrap}
+.hxSum [style*="left:"]{}
+.hxSum .hx{transform-origin:0 0}
+.hxTitle{color:#fff;text-shadow:var(--u) var(--u) 0 #505860}
+.hxName{color:#fff;text-shadow:var(--u) var(--u) 0 #505860}
+.hxLv,.hxDark{color:#505058;text-shadow:var(--u) var(--u) 0 #b8c0c8}
+.hxLv small{font-size:calc(11*var(--u))}
+.hxLab{color:#fff;text-shadow:var(--u) var(--u) 0 #505860}
+.hxVal{width:calc(70*var(--u));text-align:center}
+.hxNum{width:calc(68*var(--u));text-align:right}
+.hxRed{color:#f04830;text-shadow:var(--u) var(--u) 0 #f8b0a0}
+.hxLab .hxRed{color:#ffd0c8;text-shadow:var(--u) var(--u) 0 #a03020}.hxLab .hxBlue{color:#c8e0ff;text-shadow:var(--u) var(--u) 0 #204080}
+.hxBlue{color:#3070e8;text-shadow:var(--u) var(--u) 0 #a8c8f8}
+.hxSmall{font-size:calc(12*var(--u))}
+.hxSum .gsym .gpix{height:calc(10*var(--u))}.hxSum .gsym{margin:0}
+.hxType{font-style:normal;display:inline-block;vertical-align:top;margin:calc(1*var(--u)) calc(1*var(--u)) 0;background:var(--tc);color:#fff;font-size:calc(13*var(--u));line-height:calc(13*var(--u));min-width:calc(32*var(--u));text-align:center;padding:0 calc(2*var(--u));border-top:calc(2*var(--u)) solid #f8d040;border-radius:calc(2*var(--u));text-shadow:var(--u) var(--u) 0 #0006;box-shadow:inset 0 calc(-1*var(--u)) 0 #0004,inset 0 var(--u) 0 #fff5}
+.hxArt{left:calc(167*var(--u));top:calc(64*var(--u));width:calc(80*var(--u));height:calc(80*var(--u));display:grid;place-items:end center}
+.hxArt :is(img,svg){width:calc(80*var(--u));height:auto;image-rendering:pixelated}
+.hxExp{height:calc(2*var(--u));background:#40c8f8;display:block}
+.hxSlot{width:calc(37*var(--u));height:calc(28*var(--u));display:grid;place-items:center;cursor:pointer}
+.hxSlot.on{outline:calc(2*var(--u)) solid #f80000;outline-offset:calc(1*var(--u));border-radius:calc(3*var(--u))}
+.hxSlot :is(img,span,svg){max-width:calc(32*var(--u));max-height:calc(26*var(--u));image-rendering:pixelated}
+.hxTab{width:calc(42*var(--u));height:calc(26*var(--u));background-size:100% 100%;image-rendering:pixelated;cursor:pointer}
+.hxTab img{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated}
+.hxCancel{width:calc(60*var(--u));height:calc(26*var(--u));cursor:pointer}
+.hxSum img.hx{image-rendering:pixelated}
+`;document.head.appendChild(st)}
+/* storage uses the same summary screen */
+ptPCSummary=function(m){return ptSummary(m)};
 buildPixelCache().then(npcInit,npcInit).then(titleScreen,titleScreen);
 </script>
 
