@@ -11864,20 +11864,108 @@ const FOSSILS={helixfossil:{mon:'n138',name:'Helix Fossil'},domefossil:{mon:'n14
         if(!badge())return['Dr. Ammonite: I study fossils from the Iron Hills.','I only lend them to trainers who’ve proven they respect stone. Beat Garnet at the Gym, then come see me.'];
         return['Dr. Ammonite: The Bedrock Badge! Garnet doesn’t hand those out lightly.','I have two fossils from the deep shaft. Pick one, and it’s yours.']},
       then:()=>{const f=F();if(f.given||!badge())return;
-        owChoose(['Helix Fossil','Dome Fossil','Not now'],c=>{if(c>1)return;const k=c===0?'helixfossil':'domefossil';f.given=k;state.items[k]=(state.items[k]||0)+1;save();
+        owChoose(['Helix Fossil','Dome Fossil','Not now'],c=>{if(c>1)return;const k=c===0?'helixfossil':'domefossil';f.given=k;state.items[k]=(state.items[k]||0)+1;save();setTimeout(()=>{try{questTick()}catch(e){}},900);
           owSay([`${P().name} received the ${ITEMS[k].n}!`,'Dr. Ammonite: Take it to Tobias at the revival machines in this office.'])})}},
     {id:'mus_reviver',sheet:'scientist_m',x:26,y:6,dir:'down',say:()=>{const f=F();const has=Object.keys(FOSSILS).find(k=>(state.items[k]||0)>0);
         if(has)return['Tobias: Is that a fossil? The machine is warmed up.'];
         if(f.revived)return['Tobias: How’s your old friend doing? Fossil Pokémon love to be out of the rock.'];
         return['Tobias: These machines can bring a fossil Pokémon back to life.','Dr. Ammonite decides who gets one, though.']},
       then:()=>{const has=Object.keys(FOSSILS).find(k=>(state.items[k]||0)>0);if(!has)return;
-        owChoose([`Revive the ${ITEMS[has].n}`,'Not yet'],c=>{if(c!==0)return;state.items[has]--;F().revived=true;const m=give(FOSSILS[has].mon,10);
+        owChoose([`Revive the ${ITEMS[has].n}`,'Not yet'],c=>{if(c!==0)return;state.items[has]--;F().revived=true;const m=give(FOSSILS[has].mon,10);setTimeout(()=>{try{questTick()}catch(e){}},900);
           owSay(['Tobias: Into the machine it goes…','…','The machine whirred and glowed!',`${nm(m)} came back to life!`,state.party.includes(m)?`${nm(m)} joined your party.`:`${nm(m)} was sent to storage.`])})}},
     {id:'mus_kid',sheet:'school_kid_f',x:10,y:10,dir:'up',say:S(['Whoa… a real Wardstone piece. My teacher says there are five of them out there.'])},
     {id:'mus_miner',sheet:'worker',x:16,y:4,dir:'up',say:S(['My grandfather dug the first shaft here. Those are his tools in the case. That dent? Long story.'])},
     {id:'mus_old',sheet:'old_man',x:3,y:8,dir:'left',say:S(['When I was a boy this valley flooded every spring. We found shells in the mud afterwards.','Turns out they were fossils. Who knew.'])},
     {id:'mus_lass',sheet:'lass',x:18,y:9,dir:'down',wander:true,say:S(['I come here to sketch the statues. Nobody can tell me which Pokémon they’re supposed to be.'])}];
 }}
+/* ============ HGSS-STYLE GENDER SIGNS AND SUMMARY SCREEN ============ */
+/* pixel ♂ / ♀ like the DS games: coloured glyph with a darker drop shadow */
+const G_PIX={M:['...####','.....##','....#.#','.###...','#...#..','#...#..','#...#..','.###...'],
+             F:['.###.','#...#','#...#','#...#','.###.','..#..','#####','..#..']};
+function gPixSvg(g){const P=G_PIX[g],w=P[0].length,h=P.length,c=g==='M'?['#4890f8','#183878']:['#f86058','#882018'];let r='';
+  P.forEach((row,y)=>[...row].forEach((ch,x)=>{if(ch==='#')r+=`<rect x="${x+1}" y="${y+1}" width="1" height="1" fill="${c[1]}"/><rect x="${x}" y="${y}" width="1" height="1" fill="${c[0]}"/>`}));
+  return`<svg class="gpix" viewBox="0 0 ${w+1} ${h+1}" width="${w+1}" height="${h+1}" shape-rendering="crispEdges" aria-label="${g==='M'?'male':'female'}">${r}</svg>`}
+gsym=function(m){const g=monG(m);if(m&&SP[m.sp]&&/[♂♀]/.test(SP[m.sp].n)&&!m.nick)return'';return g?`<span class="gsym g${g}" title="${g==='M'?'Male':'Female'}">${gPixSvg(g)}</span>`:''};
+const HG_TYPE={Normal:'#a8a878',Fire:'#f08030',Water:'#6890f0',Grass:'#78c850',Electric:'#f8d030',Ice:'#98d8d8',Fighting:'#c03028',Poison:'#a040a0',Ground:'#e0c068',Flying:'#a890f0',Psychic:'#f85888',Bug:'#a8b820',Rock:'#b8a038',Ghost:'#705898',Dragon:'#7038f8',Dark:'#705848',Steel:'#b8b8d0',Fairy:'#ee99ac'};
+const hgType=t=>`<i class="hgT" style="--tc:${HG_TYPE[t]||'#888'}">${String(t).toUpperCase()}</i>`;
+const HGS_PAGES=[['info','POKéMON INFO','#f0a040'],['memo','TRAINER MEMO','#58a8e8'],['skills','POKéMON SKILLS','#60b858'],['moves','BATTLE MOVES','#e86868']];
+function hgsRows(rows){return rows.map(([l,v])=>`<div class="hgsRow"><span class="hgsL">${l}</span><span class="hgsV">${v}</span></div>`).join('')}
+function hgsPage(m,page){const s=stats(m),sp=SP[m.sp],nat=m.nature||'Hardy',nd=(NATURES[nat]||[]);ensureMoves(m);
+  const ab=abil(m),abN=(typeof AB_NAME!=='undefined'&&AB_NAME[ab])||ab||'—',abD=(typeof AB_DESC!=='undefined'&&AB_DESC[ab])||'';
+  const nxt=m.lvl>=100?0:Math.max(0,expAt(m.sp,m.lvl+1)-m.exp),base=expAt(m.sp,m.lvl),span=Math.max(1,expAt(m.sp,m.lvl+1)-base),ef=m.lvl>=100?1:Math.min(1,(m.exp-base)/span);
+  if(page==='info')return hgsRows([['No.',m.sp.slice(1)],['NAME',sp.n],['TYPE',sp.types.map(hgType).join(' ')],['OT',P().name],['ID No.',String((state.uidc*7919+m.uid*104729)%65536).padStart(5,'0')],['EXP. POINTS',m.exp],['TO NEXT LV.',nxt]])+
+    `<div class="hgsExp"><span>EXP</span><i><b style="width:${ef*100}%"></b></i></div>`;
+  if(page==='memo'){const up=nd[0],dn=nd[1];return`<div class="hgsMemo"><p><b class="hgsNat">${nat.toUpperCase()}</b> nature.</p>
+      <p>${up?`Raises <b class="up">${STATN[up]}</b>, lowers <b class="dn">${STATN[dn]}</b>.`:'No effect on stats.'}</p>
+      <p class="hgsSp">${(sp.desc||'').slice(0,140)}</p>
+      <p>Height ${sp._h?(sp._h/10).toFixed(1)+' m':'—'} · Weight ${sp._w?(sp._w/10).toFixed(1)+' kg':'—'}</p></div>`}
+  if(page==='skills'){const hpF=Math.max(0,Math.min(1,m.hp/s.maxhp)),col=hpF>.5?'#58d080':hpF>.2?'#f8c030':'#f85838';
+    const cls=k=>k===nd[0]?' class="up"':k===nd[1]?' class="dn"':'';
+    return`<div class="hgsRow"><span class="hgsL">HP</span><span class="hgsV">${Math.max(0,m.hp)}/${s.maxhp}</span></div><div class="hgsHp"><i style="width:${hpF*100}%;background:${col}"></i></div>`+
+      hgsRows(['atk','def','spa','spd','spe'].map(k=>[`<span${cls(k)}>${STATN[k].toUpperCase()}</span>`,s[k]]))+
+      `<div class="hgsAb"><span class="hgsL">ABILITY</span><b>${abN}</b><small>${abD}</small></div>`}
+  return m.moves.map(id=>{const v=MV[id];return`<div class="hgsMove">${hgType(v.t)}<b>${v.n}</b><span class="pp">PP ${m.pp[id]??v.pp}/${v.pp}</span>
+    <small>${v.cat==='status'?'Status':v.cat==='special'?'Special':'Physical'}${v.pow?` · Pow ${v.pow}`:''}${v.acc?` · Acc ${v.acc}`:''}</small></div>`}).join('')+
+    (m.moves.length<4?'<div class="hgsMove empty">—</div>'.repeat(4-m.moves.length):'')}
+let HGS_PAGE=0;
+ptSummary=function(m){const prev=PTU.keys;const el=document.createElement('div');el.className='ppSum hgSum';
+  const draw=()=>{const sp=SP[m.sp],[pg,title,col]=HGS_PAGES[HGS_PAGE];el.style.setProperty('--pc',col);
+    el.innerHTML=`<div class="hgsTop"><span class="hgsTitle">${title}</span><div class="hgsTabs">${HGS_PAGES.map((p,i)=>`<b class="hgsTab${i===HGS_PAGE?' on':''}" data-p="${i}" style="--tcol:${p[2]}">${['I','M','S','A'][i]}</b>`).join('')}</div></div>
+      <div class="hgsLeft"><div class="hgsName"><i class="hgsBall"></i><span>${nm(m)}</span>${gsym(m)}<small>Lv${m.lvl}</small></div>
+        <div class="hgsArt">${monSprite(m)}</div>
+        <div class="hgsItem"><span class="hgsL">ITEM</span><span class="hgsV">${m.item?heldN(m):'None'}</span></div>
+        <div class="hgsHint">◀▶ page · ▲▼ Pokémon · B back</div></div>
+      <div class="hgsRight">${hgsPage(m,pg)}</div><b class="hgsX" title="Back">✕</b>`;
+    el.querySelectorAll('[data-p]').forEach(t=>t.onclick=e=>{e.stopPropagation();HGS_PAGE=+t.dataset.p;draw()});
+    el.querySelector('.hgsX').onclick=e=>{e.stopPropagation();done()};
+    el.querySelector('.hgsRight').onclick=e=>{e.stopPropagation();HGS_PAGE=(HGS_PAGE+1)%HGS_PAGES.length;draw()}};
+  PTU.el.appendChild(el);const done=()=>{el.remove();PTU.keys=prev};draw();
+  PTU.keys=k=>{if(k==='b')return done();if(k==='a'||k==='right'){HGS_PAGE=(HGS_PAGE+1)%HGS_PAGES.length;return draw()}if(k==='left'){HGS_PAGE=(HGS_PAGE+3)%HGS_PAGES.length;return draw()}
+    if((k==='up'||k==='down')&&state.party.length>1){const i=state.party.indexOf(m);if(i<0)return;const j=(i+(k==='up'?-1:1)+state.party.length)%state.party.length;
+      done();if(typeof PP!=='undefined'&&PP){PP.sel=j;if(typeof ppDraw==='function')ppDraw()}ptSummary(state.party[j])}}};
+{const st=document.createElement('style');st.textContent=`
+.gsym{display:inline-block;vertical-align:baseline;margin-left:.25em;line-height:0}
+.gsym .gpix{height:.85em;width:auto;image-rendering:pixelated;display:inline-block;vertical-align:-.05em}
+.hgSum{--u:calc(100cqw / 256);position:absolute;inset:0;z-index:6;overflow:hidden;cursor:default;font-family:'Vellmoor DS','Vellmoor FRLG',var(--f-body);color:#404040;font-size:calc(10*var(--u));
+  background:repeating-linear-gradient(135deg,#f8f0d8 0 calc(4*var(--u)),#f0e6c8 calc(4*var(--u)) calc(8*var(--u)))}
+.hgsTop{position:absolute;left:0;right:0;top:0;height:calc(18*var(--u));background:linear-gradient(#fff3 0 50%,#0000 50%),var(--pc);border-bottom:calc(2*var(--u)) solid #0003;display:flex;align-items:center;justify-content:space-between;padding:0 calc(6*var(--u))}
+.hgsTitle{color:#fff;font-size:calc(11*var(--u));text-shadow:calc(1*var(--u)) calc(1*var(--u)) 0 #0006;letter-spacing:.03em}
+.hgsTabs{display:flex;gap:calc(3*var(--u))}
+.hgsTab{width:calc(16*var(--u));height:calc(12*var(--u));border-radius:calc(3*var(--u));background:var(--tcol);color:#fff;display:grid;place-items:center;font-size:calc(8*var(--u));opacity:.6;cursor:pointer;box-shadow:inset 0 calc(-2*var(--u)) 0 #0003}
+.hgsTab.on{opacity:1;transform:translateY(calc(-1*var(--u)));outline:calc(1*var(--u)) solid #fff}
+.hgsLeft{position:absolute;left:calc(4*var(--u));top:calc(24*var(--u));width:calc(98*var(--u));bottom:calc(4*var(--u))}
+.hgsName{height:calc(16*var(--u));background:#fff;border:calc(1*var(--u)) solid #a0a0a0;border-radius:calc(8*var(--u));display:flex;align-items:center;gap:calc(2*var(--u));padding:0 calc(5*var(--u)) 0 calc(2*var(--u));box-shadow:0 calc(1*var(--u)) 0 #0002;white-space:nowrap;overflow:hidden}
+.hgsName span{overflow:hidden;text-overflow:ellipsis}.hgsName small{margin-left:auto;font-size:calc(9*var(--u))}
+.hgsBall{flex:none;width:calc(11*var(--u));height:calc(11*var(--u));border-radius:50%;background:linear-gradient(#f05040 0 46%,#303030 46% 56%,#fff 56%);box-shadow:inset 0 0 0 calc(1*var(--u)) #303030}
+.hgsArt{position:absolute;left:0;right:0;top:calc(20*var(--u));height:calc(88*var(--u));border-radius:calc(6*var(--u));background:radial-gradient(ellipse at 50% 80%,#ffffffb0 0 30%,#0000 31%),linear-gradient(#cfe8f8,#a8d0f0);border:calc(1*var(--u)) solid #fff;display:grid;place-items:center;box-shadow:0 0 0 calc(1*var(--u)) #a0a0a0}
+.hgsArt :is(img,svg){width:calc(72*var(--u));height:auto;image-rendering:pixelated}
+.hgsItem{position:absolute;left:0;right:0;top:calc(112*var(--u));display:flex;height:calc(14*var(--u))}
+.hgsHint{position:absolute;left:0;right:0;bottom:0;font-size:calc(7*var(--u));color:#807050;text-align:center}
+.hgsRight{position:absolute;left:calc(106*var(--u));right:calc(4*var(--u));top:calc(24*var(--u));bottom:calc(4*var(--u));background:#fff;border:calc(1*var(--u)) solid #a0a0a0;border-radius:calc(4*var(--u));padding:calc(3*var(--u));display:flex;flex-direction:column;gap:calc(2*var(--u));box-shadow:0 calc(1*var(--u)) 0 #0002;cursor:pointer}
+.hgsRow,.hgsItem{display:flex;align-items:stretch;min-height:calc(14*var(--u))}
+.hgsL{flex:none;width:calc(52*var(--u));background:var(--pc);color:#fff;border-radius:calc(3*var(--u)) 0 0 calc(3*var(--u));display:flex;align-items:center;padding-left:calc(4*var(--u));font-size:calc(8*var(--u));text-shadow:calc(1*var(--u)) calc(1*var(--u)) 0 #0004}
+.hgsV{flex:1;background:#f0f0f0;border-radius:0 calc(3*var(--u)) calc(3*var(--u)) 0;display:flex;align-items:center;gap:calc(2*var(--u));padding:0 calc(4*var(--u));white-space:nowrap;overflow:hidden}
+.hgsItem .hgsV{background:#fff;border:calc(1*var(--u)) solid #a0a0a0;border-left:0}
+.hgT{font-style:normal;display:inline-block;background:var(--tc);color:#fff;font-size:calc(7*var(--u));padding:calc(1*var(--u)) calc(3*var(--u));border-radius:calc(2*var(--u));text-shadow:calc(1*var(--u)) calc(1*var(--u)) 0 #0005;box-shadow:inset 0 calc(-1*var(--u)) 0 #0003;line-height:1.2}
+.hgsExp{display:flex;align-items:center;gap:calc(3*var(--u));font-size:calc(7*var(--u));margin-top:auto}
+.hgsExp i{flex:1;height:calc(4*var(--u));background:#505050;border-radius:calc(2*var(--u));overflow:hidden}.hgsExp b{display:block;height:100%;background:#40b8f8}
+.hgsHp{height:calc(4*var(--u));background:#505050;border-radius:calc(2*var(--u));overflow:hidden;margin:0 0 calc(2*var(--u)) calc(52*var(--u))}.hgsHp i{display:block;height:100%}
+.hgSum .up{color:#e83828}.hgSum .dn{color:#2858e8}.hgsL .up,.hgsL .dn{color:#fff;text-decoration:underline}
+.hgsL .up::after{content:' ▲'}.hgsL .dn::after{content:' ▼'}
+.hgsAb{margin-top:auto;display:grid;grid-template-columns:calc(52*var(--u)) 1fr;row-gap:calc(1*var(--u))}
+.hgsAb .hgsL{grid-row:span 2;border-radius:calc(3*var(--u))}.hgsAb b{padding-left:calc(4*var(--u))}.hgsAb small{padding-left:calc(4*var(--u));font-size:calc(7*var(--u));color:#606060;line-height:1.15}
+.hgsMemo p{margin:0 0 calc(4*var(--u));line-height:1.3}.hgsNat{color:#e83828}.hgsSp{font-size:calc(8*var(--u));color:#606060}
+.hgsMove{display:grid;grid-template-columns:auto 1fr auto;align-items:center;column-gap:calc(4*var(--u));background:#f0f0f0;border-radius:calc(3*var(--u));padding:calc(2*var(--u)) calc(4*var(--u));border-left:calc(3*var(--u)) solid var(--pc)}
+.hgsMove small{grid-column:1/-1;font-size:calc(7*var(--u));color:#606060}.hgsMove .pp{font-size:calc(8*var(--u))}.hgsMove.empty{color:#a0a0a0}
+.hgsX{position:absolute;right:calc(4*var(--u));bottom:calc(4*var(--u));display:none}
+`;document.head.appendChild(st)}
+/* ============ QUEST: the Copperford fossil ============ */
+QUESTS.push({id:'fossil1',giver:2,title:'Secrets in the Stone',text:'Dr. Ammonite at the Copperford museum lends fossils only to Gym winners. Earn the Bedrock Badge, pick a fossil from her, then have Tobias revive it.',
+  prog:()=>{const f=state.fossil||{};return(state.badges&&state.badges[0]?1:0)+(f.given?1:0)+(f.revived?1:0)},goal:3,reward:{gold:300,items:{hardstone:1},note:'Hard Stone powers up Rock-type moves.'}});
+function fossilQuestStart(){if(!state.quests.active.includes('fossil1')&&!state.quests.done.includes('fossil1')){acceptQuest('fossil1');toast('<span class="label" style="color:var(--accent)">New quest</span><b>Secrets in the Stone</b><span>Added to your quest journal.</span>')}}
+{const M=OW_MAPS.a2_pewtercity_museum_1f;if(M)for(const id of['mus_fossil','mus_reviver']){const n=M.npcs.find(x=>x.id===id);if(!n)continue;
+  const s0=n.say,t0=n.then;n.say=function(){fossilQuestStart();return s0.apply(this,arguments)};
+  n.then=function(){const r=t0&&t0.apply(this,arguments);setTimeout(()=>{try{questTick()}catch(e){}},50);return r}}}
 buildPixelCache().then(npcInit,npcInit).then(titleScreen,titleScreen);
 </script>
 
