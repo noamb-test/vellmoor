@@ -11769,6 +11769,11 @@ function centerApply(){
     list.forEach(([sheet,x,y,dir,wander,L],i)=>{if(CENTER_COLL[y][x]!=='0'||M.npcs.some(n=>n.x===x&&n.y===y))return;
       M.npcs.push({id:`${k}_local${i}`,sheet,x,y,dir,wander:!!wander,say:()=>L.slice()})})}}
 centerApply();
+/* a save made before a map was redrawn can leave you standing inside a wall, a building or water: step to the nearest open tile */
+{const _st3=owStart;owStart=function(M){if(M&&M.vmTest&&state&&state.ow&&state.ow.map===M.key&&M.coll){const o=state.ow,open=(x,y)=>M.coll[y]&&M.coll[y][x]==='0'&&!(M.npcs||[]).some(n=>n.x===x&&n.y===y);
+    if(!open(o.x,o.y)){const seen=new Set([o.x+','+o.y]),q=[[o.x,o.y]];let hit=null;while(q.length&&!hit){const[x,y]=q.shift();for(const[dx,dy]of[[0,1],[1,0],[-1,0],[0,-1]]){const a=x+dx,b=y+dy,k=a+','+b;if(seen.has(k)||a<0||b<0||a>=M.w||b>=M.h)continue;seen.add(k);if(open(a,b)){hit=[a,b];break}q.push([a,b])}}
+      if(!hit&&M.start)hit=[M.start[0],M.start[1]];if(hit){o.x=hit[0];o.y=hit[1]}}}
+  return _st3.apply(this,arguments)}}
 buildPixelCache().then(npcInit,npcInit).then(titleScreen,titleScreen);
 </script>
 
