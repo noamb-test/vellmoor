@@ -14,7 +14,8 @@ const isMob=()=>pref==='mobile'||(pref!=='desktop'&&auto());
 const css=document.createElement('style');css.textContent=`
 #stage{touch-action:none}
 #mbar,#mnav{display:none}
-body.mob #app{grid-template-columns:1fr;grid-template-rows:auto 1fr auto auto}
+body.mob,html:has(body.mob){height:100dvh}
+body.mob #app{grid-template-columns:1fr;grid-template-rows:auto 1fr auto auto;height:100dvh;padding-top:env(safe-area-inset-top)}
 body.mob #top{grid-column:1;overflow-x:auto;overflow-y:hidden;flex-wrap:nowrap;padding:6px 8px;gap:5px;scrollbar-width:none;min-height:46px}
 body.mob #top::-webkit-scrollbar{display:none}
 body.mob #top>*{flex:none}
@@ -23,7 +24,7 @@ body.mob #top .sp{flex:1 0 6px}
 body.mob #status{display:none}
 body.mob button{padding:8px 11px;font-size:14px;border-radius:9px}
 body.mob select,body.mob input,body.mob textarea{font-size:16px;padding:7px 8px}
-body.mob #left,body.mob #right{position:fixed;left:0;right:0;bottom:calc(var(--mnavh,108px) + env(safe-area-inset-bottom));max-height:55vh;z-index:6;
+body.mob #left,body.mob #right{position:fixed;left:0;right:0;bottom:var(--mnavh,108px);max-height:55vh;z-index:6;
   border:1px solid var(--line);border-bottom:none;border-radius:16px 16px 0 0;box-shadow:0 -10px 30px #0008;padding:6px 12px 14px;
   transform:translateY(120%);transition:transform .22s ease;overscroll-behavior:contain}
 body.mob #left.open,body.mob #right.open{transform:none}
@@ -39,7 +40,7 @@ body.mob #mbar>*{flex:none}
 body.mob #mbar .gap{width:4px}
 body.mob #mbar button{min-width:44px;padding:9px 10px}
 body.mob #mbar button:disabled{opacity:.4}
-body.mob #mnav{grid-column:1;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:6px 8px calc(8px + env(safe-area-inset-bottom));background:var(--panel);z-index:7}
+body.mob #mnav{grid-column:1;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:6px 8px calc(8px + env(safe-area-inset-bottom) + var(--mbot,0px));background:var(--panel);z-index:7}
 body.mob #mnav button{padding:10px 4px;font-size:14px;font-weight:600}
 body.mob #mnav small{display:block;font-weight:400;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 body.mob #mnav button.on small{color:#cfe3ff}
@@ -105,6 +106,9 @@ function labels(){const t=document.querySelector('#tools button.on');$('#mTool')
 new MutationObserver(labels).observe(L,{subtree:true,childList:true,attributes:true,attributeFilter:['class']});
 new MutationObserver(labels).observe(R,{subtree:true,childList:true});
 
+/* iPhone Safari's floating address bar covers the bottom of the page: leave room for it */
+const iosSafari=/iP(hone|ad|od)/.test(navigator.userAgent)&&!navigator.standalone&&!matchMedia('(display-mode: standalone)').matches;
+document.documentElement.style.setProperty('--mbot',iosSafari?'62px':'0px');
 function apply(){const on=isMob();document.body.classList.toggle('mob',on);if(!on){L.classList.remove('open');R.classList.remove('open');open=null}
   setTimeout(()=>{setNavH();try{if(typeof M!=='undefined'&&M){fit();renderAll()}}catch(e){}labels()},50)}
 addEventListener('resize',()=>{const was=document.body.classList.contains('mob');if(was!==isMob())apply();else setNavH()});
