@@ -11778,6 +11778,42 @@ centerApply();
     if(!open(o.x,o.y)){const seen=new Set([o.x+','+o.y]),q=[[o.x,o.y]];let hit=null;while(q.length&&!hit){const[x,y]=q.shift();for(const[dx,dy]of[[0,1],[1,0],[-1,0],[0,-1]]){const a=x+dx,b=y+dy,k=a+','+b;if(seen.has(k)||a<0||b<0||a>=M.w||b>=M.h)continue;seen.add(k);if(open(a,b)){hit=[a,b];break}q.push([a,b])}}
       if(!hit&&M.start)hit=[M.start[0],M.start[1]];if(hit){o.x=hit[0];o.y=hit[1]}}}
   return _st3.apply(this,arguments)}}
+/* ============ COPPERFORD GYM (Rock): the Old Mine ============
+   Three tunnels of rock between you and Garnet:
+   1. push the boulder out of the gap at the entrance;
+   2. drop a boulder into a pit to cross the second wall, or have your partner smash the cracked rock;
+   3. slide the last boulder along and drop it into the pit in front of Garnet's platform.
+   Pits and cracked rocks come back when you leave the gym, like the boulders. */
+{const M=OW_MAPS.a2_gym;if(M){
+  const pzs=()=>{const s=owPzState(M);s.filled=s.filled||new Set();s.gone=s.gone||new Set();s.smashed=s.smashed||new Set();return s};
+  /* walls: the entrance gap moves to the middle, the second wall gets a pit and a cracked rock */
+  const row=(y,str)=>{M.coll[y]=str};
+  row(7,'111111101111111');row(10,'111101111101111');row(13,'111111101111111');
+  M.vmHoles=[{x:9,y:13,w:1,h:1,fx:8,fy:13},{x:7,y:13,w:1,h:1,fx:7,fy:12},{x:11,y:10,w:1,h:1,fx:12,fy:10},{x:10,y:10,w:1,h:1,fx:10,fy:11}];M.vmFurn=[];
+  /* people: trainers stand where they watch each tunnel */
+  const by=f=>M.npcs.find(f);const mv=(n,x,y,dir)=>{if(n){n.x=x;n.y=y;n.dir=dir}};
+  mv(by(n=>n.id==='a2_gym_gt'),11,12,'left');{const gt=by(n=>n.id==='a2_gym_gt');if(gt&&!gt.sheet)gt.sheet='roughneck'}mv(by(n=>n.id==='a2_gym_e2'),3,8,'right');mv(by(n=>n.id==='a2_gym_e3'),12,9,'left');
+  const guide=by(n=>n.sheet==='gym_guide');if(guide){const L0=guide.say;guide.say=()=>['Hey, champ in the making! This gym is an old copper mine.','Walk into a boulder to push it. Drop one into a pit and it fills the hole so you can cross.','See a cracked rock? Your partner can smash it.','If you get stuck, step outside and everything resets.']}
+  M.npcs=M.npcs.filter(n=>n.role!=='boulder');
+  const S=pzs;
+  const boulder=(id,x,y)=>({id,sheet:'boulder',x,y,dir:'down',role:'boulder',show:()=>!S().gone.has(id)});
+  const pit=(id,x,y)=>({id,sheet:'pit',x,y,dir:'down',role:'pit',show:()=>!S().filled.has(id),say:()=>['A deep pit. You can’t see the bottom.','Something heavy might fill it…']});
+  const crack=(id,x,y)=>({id,sheet:'crackrock',x,y,dir:'down',role:'crack',show:()=>!S().smashed.has(id),say:()=>['A cracked boulder. It looks like it could break.'],
+    then:()=>{const P=state.party.find(m=>m.hp>0);if(!P)return;owChoose([`Have ${nm(P)} smash it`,'Leave it'],c=>{if(c!==0)return;const K=OWK;S().smashed.add(id);if(K)K.npcs=K.npcs.filter(o=>o.id!==id);owPzSfx();owSay([`${nm(P)} used Rock Smash!`,'The cracked boulder crumbled to pieces.'])})}});
+  M.npcs.push(boulder('gb_entry',7,13),boulder('gb_mid',4,11),boulder('gb_top',10,8),
+    pit('gp_mid',4,10),pit('gp_top',7,7),crack('gc_mid',10,10));
+}}
+/* boulders drop into pits */
+{const _push=owPush;owPush=function(K,n,dx,dy){const M=K.map,bx=n.x+dx,by=n.y+dy;
+  const pt=K.npcs.find(o=>o.role==='pit'&&o.x===bx&&o.y===by);
+  if(pt){const s=owPzState(M);s.filled=s.filled||new Set();s.gone=s.gone||new Set();
+    n.fx=n.x;n.fy=n.y;n.tx=bx;n.ty=by;n.t=0;K.busy=true;
+    setTimeout(()=>{K.npcs=K.npcs.filter(o=>o!==n&&o!==pt);s.filled.add(pt.id);s.gone.add(n.id);
+      s.boulders=K.npcs.filter(b=>b.role==='boulder').map(b=>[b.tx??b.x,b.ty??b.y]);owPzSfx();K.busy=false;
+      owSay(['The boulder tipped into the pit with a CRASH!','It filled the hole. You can walk across now.'])},280);return}
+  return _push.apply(this,arguments)}}
+/* gym trainers that never got a picture: give them one so they don't stand invisible */
+for(const M of Object.values(OW_MAPS))for(const n of(M&&M.npcs)||[])if(n.role==='gymTrainer'&&!n.sheet)n.sheet='ace_trainer_m';
 buildPixelCache().then(npcInit,npcInit).then(titleScreen,titleScreen);
 </script>
 
