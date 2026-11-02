@@ -10181,6 +10181,7 @@ function owKey(e){const K=OWK;if(!K||(typeof PTU!=='undefined'&&PTU)||(typeof HG
   const d=owKeyDir[e.key],down=e.type==='keydown';
   if(d){e.preventDefault();e.stopPropagation();if(down){if(!K.held.includes(d))K.held.unshift(d)}else K.held=K.held.filter(x=>x!==d);return}
   if(e.key==='Shift'){K.run=down;e.stopPropagation();return}
+  if(down&&(e.key==='r'||e.key==='R')&&!K.msg&&!e.repeat){e.preventDefault();e.stopPropagation();state.autoRun=!state.autoRun;save();toast(`<b>Auto sprint ${state.autoRun?'on':'off'}</b><span>${state.autoRun?'Hold Shift to walk.':'Hold Shift to run.'} Press R to switch.</span>`);return}
   if(down&&(e.key==='x'||e.key==='X'||e.key==='i'||e.key==='I')&&!K.msg&&!K.moving){e.preventDefault();e.stopPropagation();K.held=[];return hgStartMenu()}
   if(!down)return;
   if(e.key==='z'||e.key==='Z'||e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();if(K.choose)return owChooseKey('ok');owAct();return}
@@ -10210,7 +10211,7 @@ function owTry(K,d){const o=state.ow,[dx,dy]=OW_DIRS[d],x=o.x+dx,y=o.y+dy;K.dir=
   {const pn=owNpcAt(K,x,y);if(pn&&pn.role==='boulder'){if(typeof owPush==='function')owPush(K,pn,dx,dy);return}}
   const fol=K.fol&&K.fol.x===x&&K.fol.y===y;
   if(owBlocked(K,x,y)||(owNpcAt(K,x,y))){K.bump=performance.now();return}
-  const ms=K.run?130:230;K.step++;
+  const ms=owRunning(K)?130:230;K.step++;
   K.moving={fx:o.x,fy:o.y,tx:x,ty:y,t:0,ms,fol:K.fol?{fx:K.fol.x,fy:K.fol.y,tx:fol?o.x:o.x,ty:fol?o.y:o.y}:null};
   if(K.fol){const fdx=o.x-K.fol.x,fdy=o.y-K.fol.y;if(fdx||fdy)K.fol.dir=fdx>0?'right':fdx<0?'left':fdy>0?'down':'up';else K.fol.dir=d}}
 function owArrive(K){const M=K.map,o=state.ow;const wp=M.warps&&M.warps[o.x+','+o.y];if(wp){K.busy=true;setTimeout(()=>owWarp(...wp),60);return true}
@@ -10255,7 +10256,7 @@ function owDraw(K,now){const c=K.ctx,M=K.map,n=K.n||1;c.setTransform(n,0,0,n,0,0
   if(owOk(K.lower))c.drawImage(K.lower,-cam.x,-cam.y);if(typeof owUnder==='function')owUnder(K,cam,now);
   const ents=[];
   const pf=K.moving&&K.moving.t/K.moving.ms<.6?(K.step%2?1:3):0;
-  ents.push({y:K.py,draw:()=>{const img=K.player;if(!owOk(img))return;const run=K.run&&K.moving;const base=run?16:0;const row=base+OW_ROW[K.dir]*4+pf;
+  ents.push({y:K.py,draw:()=>{const img=K.player;if(!owOk(img))return;const run=owRunning(K)&&K.moving;const base=run?16:0;const row=base+OW_ROW[K.dir]*4+pf;
     c.drawImage(img,0,row*32,32,32,Math.round(K.px-cam.x-8),Math.round(K.py-cam.y-16),32,32)}});
   for(const nn of K.npcs){const moving=nn.tx!==undefined&&nn.t<160;ents.push({y:nn.py,draw:()=>typeof owNpcDraw==='function'?owNpcDraw(K,nn,moving,cam,now):owSheet(K,nn.img,nn.dir,moving?1:0,nn.px,nn.py,cam)})}
   if(K.fol){const f=K.fol;ents.push({y:f.py-.5,draw:()=>{
@@ -11169,7 +11170,7 @@ function hgTrainerCard(){const p=P(),seen=Object.keys(state.dex.seen||{}).length
 function hgAreaDex(){const h=areaDexHTML(state.loc)||'<p>No wild Pokémon live here.</p>';
   ptOpen(`<div class="hgSM"><img class="ptBg" src="${HGM}bg.png" alt=""><div class="ptWin hgArea"><div class="hgCardTop"><span>POKéMON HERE</span><span>${AREAS[state.loc].n}</span></div><div class="hgAreaList">${h}</div></div></div>`,k=>{if(k==='b'||k==='a')ptClose();else if(k==='up'||k==='down'){const l=PTU.el.querySelector('.hgAreaList');if(l)l.scrollTop+=(k==='up'?-1:1)*40}},()=>hgStartMenu());
   PTU.el.querySelectorAll('.adCell[data-dex]').forEach(c=>c.onclick=e=>{e.stopPropagation();ptClose(true);openDexEntry(c.dataset.dex)})}
-function hgOptions(){let i=0;const opts=()=>[[`PACE: ${state.fast?'FAST':'NORMAL'}`,()=>{state.fast=!state.fast;save()}],['SAVE FILES',()=>{ptClose(true);save();titleScreen();return true}],['CLOSE',()=>{ptClose();return true}]];
+function hgOptions(){let i=0;const opts=()=>[[`AUTO SPRINT: ${state.autoRun?'ON':'OFF'}`,()=>{state.autoRun=!state.autoRun;save()}],[`PACE: ${state.fast?'FAST':'NORMAL'}`,()=>{state.fast=!state.fast;save()}],['SAVE FILES',()=>{ptClose(true);save();titleScreen();return true}],['CLOSE',()=>{ptClose();return true}]];
   ptOpen(`<div class="hgSM"><img class="ptBg" src="${HGM}bg.png" alt=""><div class="ptWin ptMenuWin hgOpt"></div></div>`,k=>{const o=opts();if(k==='up')i=(i-1+o.length)%o.length;else if(k==='down')i=(i+1)%o.length;else if(k==='b')return ptClose();else if(k==='a'){if(o[i][1]())return}draw()},()=>hgStartMenu());
   const draw=()=>{const w=PTU&&PTU.el.querySelector('.hgOpt');if(!w)return;w.innerHTML=opts().map((o,j)=>`<button class="${j===i?'on':''}" data-j="${j}">${o[0]}</button>`).join('');
     w.querySelectorAll('button').forEach(b=>b.onclick=e=>{e.stopPropagation();i=+b.dataset.j;if(!opts()[i][1]())draw()})};draw()}
@@ -11178,7 +11179,7 @@ function hgOptions(){let i=0;const opts=()=>[[`PACE: ${state.fast?'FAST':'NORMAL
   if(pad&&!pad.querySelector('.owX')){const b=document.createElement('button');b.className='owX';b.id='owX';b.textContent='MENU';b.setAttribute('aria-label','Menu');
     b.onclick=()=>{if(owPadMenu())return owPadSend('x');if(OWK&&!OWK.msg)hgStartMenu()};pad.appendChild(b)}
   const mn0=document.querySelector('.owMain');if(mn0&&!mn0.querySelector('.hgMenuBtn')){const d=document.createElement('div');d.className='hgMenuBar';
-    d.innerHTML='<button class="hgMenuBtn" id="hgMenuBtn">MENU <small>X</small></button><span class="hgHelp">Arrows/WASD walk · Shift run · Z talk · X menu · Esc map</span>';mn0.appendChild(d);
+    d.innerHTML='<button class="hgMenuBtn" id="hgMenuBtn">MENU <small>X</small></button><span class="hgHelp">Arrows/WASD walk · Shift run · R auto sprint · Z talk · X menu · Esc map</span>';mn0.appendChild(d);
     d.querySelector('button').onclick=()=>{if(OWK&&!OWK.msg&&!PTU)hgStartMenu()}}
   const fl=document.querySelector('.owSide .flash'),mn=document.querySelector('.owMain');if(fl&&mn)mn.prepend(fl);return r}}
 
@@ -11398,7 +11399,7 @@ function creatorScreen(edit){
   tabs();body();redraw();
 }
 /* MENU > OPTIONS > CHANGE LOOK */
-{const _hgOpt=hgOptions;hgOptions=function(){let i=0;const opts=()=>[[`PACE: ${state.fast?'FAST':'NORMAL'}`,()=>{state.fast=!state.fast;save()}],['CHANGE LOOK',()=>{ptClose(true);if(typeof owStop==='function')owStop();setTimeout(()=>creatorScreen(true),0);return true}],['SAVE FILES',()=>{ptClose(true);save();titleScreen();return true}],['CLOSE',()=>{ptClose();return true}]];
+{const _hgOpt=hgOptions;hgOptions=function(){let i=0;const opts=()=>[[`AUTO SPRINT: ${state.autoRun?'ON':'OFF'}`,()=>{state.autoRun=!state.autoRun;save()}],[`PACE: ${state.fast?'FAST':'NORMAL'}`,()=>{state.fast=!state.fast;save()}],['CHANGE LOOK',()=>{ptClose(true);if(typeof owStop==='function')owStop();setTimeout(()=>creatorScreen(true),0);return true}],['SAVE FILES',()=>{ptClose(true);save();titleScreen();return true}],['CLOSE',()=>{ptClose();return true}]];
   ptOpen(`<div class="hgSM"><img class="ptBg" src="${HGM}bg.png" alt=""><div class="ptWin ptMenuWin hgOpt"></div></div>`,k=>{const o=opts();if(k==='up')i=(i-1+o.length)%o.length;else if(k==='down')i=(i+1)%o.length;else if(k==='b')return ptClose();else if(k==='a'){if(o[i][1]())return}draw()},()=>hgStartMenu());
   const draw=()=>{const w=PTU&&PTU.el.querySelector('.hgOpt');if(!w)return;w.innerHTML=opts().map((o,j)=>`<button class="${j===i?'on':''}" data-j="${j}">${o[0]}</button>`).join('');
     w.querySelectorAll('button').forEach(b=>b.onclick=e=>{e.stopPropagation();i=+b.dataset.j;if(!opts()[i][1]())draw()})};draw()}}
@@ -11649,6 +11650,27 @@ labSetup();
 /* the questions start by themselves only the first time you wake up in the Center */
 {const _st2=owStart;owStart=function(M){if(M&&M.key==='hv_center'&&state.centerAsked&&state.needStarter){state.needStarter=false}const r=_st2.apply(this,arguments);if(M&&M.key==='hv_center'&&!state.party.length)state.centerAsked=true;return r}}
 
+/* ============ AUTO SPRINT + QUEST CLERK in every Pokémon Center ============ */
+/* auto sprint: you run all the time; hold Shift (or B on the pad) to walk. R switches it on and off. */
+function owRunning(K){return state.autoRun?!K.run:!!K.run}
+/* a quest clerk next to the counter in each Pokémon Center */
+function qcLines(){questTick();const act=state.quests.active.map(Q).filter(Boolean);
+  if(!act.length)return['Quest Clerk: You don’t have any quests right now.','Check the notice board here, or visit Professor Thessaly’s lab for research work.'];
+  const L=[`Quest Clerk: You have ${act.length} quest${act.length>1?'s':''} going.`];
+  for(const q of act.slice(0,8)){const g=q.giver==='prof'?'Professor Thessaly':(AREAS[q.giver]||{}).n||'';L.push(`${fixNames(q.title)}: ${qProg(q)}/${q.goal}${g?' ('+g+')':''}`)}
+  if(act.length>8)L.push(`…and ${act.length-8} more in your journal.`);
+  return L}
+{const spots=[[13,12],[14,12],[13,13],[12,13],[14,13]];
+  for(const[k,M]of Object.entries(OW_MAPS)){if(!M||M.title!=='Pokémon Center'||!M.npcs||M.npcs.some(n=>n.id==='quest_clerk_'+k))continue;
+    const s=spots.find(([x,y])=>M.coll[y]&&M.coll[y][x]==='0'&&!M.npcs.some(n=>n.x===x&&n.y===y)&&!(M.exits&&M.exits[x+','+y]));if(!s)continue;
+    M.npcs.push({id:'quest_clerk_'+k,sheet:'lady',x:s[0],y:s[1],dir:'down',say:qcLines,
+      then:()=>owChoose(['Open my quest journal','This town’s notice board','No thanks'],c=>{if(c===0){owStop();openQuests()}else if(c===1){owStop();openQuests(state.loc)}})})}}
+/* phones: stop long presses from selecting text or opening the Copy menu while playing */
+{const st=document.createElement('style');st.textContent='html,body,body *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}input,textarea,[contenteditable]{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}button,canvas,#owC{touch-action:manipulation}';document.head.appendChild(st);
+  const typing=e=>e.target&&e.target.closest&&e.target.closest('input,textarea,[contenteditable]');
+  document.addEventListener('contextmenu',e=>{if(!typing(e))e.preventDefault()},true);
+  document.addEventListener('selectstart',e=>{if(!typing(e))e.preventDefault()},true);
+  document.addEventListener('selectionchange',()=>{const a=document.activeElement;if(a&&/INPUT|TEXTAREA/.test(a.tagName))return;const s=window.getSelection&&window.getSelection();if(s&&s.rangeCount&&!s.isCollapsed)s.removeAllRanges()})}
 buildPixelCache().then(npcInit,npcInit).then(titleScreen,titleScreen);
 </script>
 
