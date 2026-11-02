@@ -11814,6 +11814,56 @@ centerApply();
   return _push.apply(this,arguments)}}
 /* gym trainers that never got a picture: give them one so they don't stand invisible */
 for(const M of Object.values(OW_MAPS))for(const n of(M&&M.npcs)||[])if(n.role==='gymTrainer'&&!n.sheet)n.sheet='ace_trainer_m';
+/* ============ COPPERFORD GUILD MUSEUM: exhibits, staff, and a fossil for Gym winners ============ */
+ITEMS.helixfossil=ITEMS.helixfossil||{n:'Helix Fossil',price:0,desc:'A spiral shell from the Iron Hills. The museum can revive it.',key:true};
+ITEMS.domefossil=ITEMS.domefossil||{n:'Dome Fossil',price:0,desc:'A dome-shaped shell from the Iron Hills. The museum can revive it.',key:true};
+const FOSSILS={helixfossil:{mon:'n138',name:'Helix Fossil'},domefossil:{mon:'n140',name:'Dome Fossil'}};
+{const M=OW_MAPS.a2_pewtercity_museum_1f;if(M){
+  M.coll=["11111111111111111111111111111111", "11111111111111111111111111111111", "11111111111111111111111111111111", "11111110000000111111111111111111", "11100000000000000000110011111111", "11100111000001110000110011111111", "11100111000001110000100000001111", "10000100011100010000000001001111", "10000100011100010000001111001111", "11100100011100010000001111101111", "11100111000001110000001111001111", "11100111000001110000111111111111", "10000000000000000000111111111111", "11000000000000000001111111111111", "11000000000000000001111111111111", "11111111110111111111111111111111", "11111111110111111111111111111111", "11111111000001111111111111111111", "11111111000001111111111111111111", "11111111000001111111111111111111", "11111111111111111111111111111111", "11111111111111111111111111111111", "11111111111111111111111111111111"];
+  const S=(L)=>()=>L.slice();
+  const ex={
+    case_tl:['FOSSILS OF THE IRON HILLS','Shells and claws found by the first miners. Some are older than the hills themselves.'],
+    case_tr:['TOOLS OF THE FIRST MINERS','Copper picks, a lantern, and a helmet with a dent shaped suspiciously like a Geodude.'],
+    glass_l:['AMBER FROM THE DEEP SHAFT','A drop of golden amber. Something with wings is trapped inside.'],
+    glass_r:['COPPER ORE','Raw copper from the town’s oldest seam. It turns the river red when it rains.'],
+    centre:['THE WARDSTONE FRAGMENT','A shard of carved stone found under the ford. The carvings match the bells of Skyreach.','Nobody knows how it got here.'],
+    gold_l:['PRIMORDIAL SEA','Before the hills, this valley was an ocean. Helix and Dome fossils are what its Pokémon left behind.'],
+    gold_r:['THE GREAT DIG','Garnet’s grandmother led the dig that found the Wardstone fragment. The Gym was built over the shaft.'],
+    side_l:['MINERALS','Quartz, iron pyrite, and a dull grey stone labelled “definitely not a Moon Stone”.'],
+    side_l2:['PHOTOGRAPHS','Old pictures of Copperford: the first smelter, the flood of the ford, the day the Gym opened.'],
+    statue:['A golden statue of a Pokémon nobody has seen in living memory.']};
+  const put=(L,keys)=>{for(const k of keys)M.signs[k]=S(L)};M.signs={};
+  put(ex.case_tl,['3,3','4,3','5,3','6,3']);put(ex.case_tr,['14,3','15,3','16,3','17,3']);
+  put(ex.glass_l,['5,6','6,6','7,6']);put(ex.glass_r,['13,6','14,6','15,6']);
+  put(ex.centre,['9,9','10,9','11,9','9,7','10,7','11,7']);put(ex.gold_l,['5,11','6,11','7,11']);put(ex.gold_r,['13,11','14,11','15,11']);
+  put(ex.side_l,['1,6','2,6']);put(ex.side_l2,['1,11','2,11','1,9','2,9']);put(ex.statue,['5,7','5,8','5,9','15,7','15,8','15,9']);
+  put(['A tall, healthy plant.'],['1,13','1,14','19,13','19,14','1,3','2,3','18,3','19,3']);
+  put(['Revival machines hum quietly. A sign says: “Do not tap the glass.”'],['24,5','25,5','26,5','27,5']);
+  put(['Research notes are piled on the desk. One reads: “Kabuto — check if it can still swim.”'],['22,10','23,10','24,10','22,8','23,8','24,8']);
+  const badge=()=>!!(state.badges&&state.badges[0]);
+  const F=()=>state.fossil=state.fossil||{};
+  const give=(id,lvl)=>{const m=makeMon(id,lvl);state.dex.seen[m.sp]=1;state.dex.caught[m.sp]=1;if(state.party.length<6)state.party.push(m);else(state.stable=state.stable||[]).push(m);save();return m};
+  M.npcs=[
+    {id:'mus_curator',sheet:'gentleman',x:12,y:13,dir:'down',say:()=>['Curator Flint: Welcome to the Copperford Guild Museum!','Everything here came out of the Iron Hills. Take your time.']},
+    {id:'mus_fossil',sheet:'scientist_f',x:22,y:7,dir:'left',say:()=>{const f=F();
+        if(f.given)return[`Dr. Ammonite: That ${ITEMS[f.given].n} is in good hands with you.`,f.revived?'And it’s alive again! I could cry.':'Tobias by the machines can bring it back to life.'];
+        if(!badge())return['Dr. Ammonite: I study fossils from the Iron Hills.','I only lend them to trainers who’ve proven they respect stone. Beat Garnet at the Gym, then come see me.'];
+        return['Dr. Ammonite: The Bedrock Badge! Garnet doesn’t hand those out lightly.','I have two fossils from the deep shaft. Pick one, and it’s yours.']},
+      then:()=>{const f=F();if(f.given||!badge())return;
+        owChoose(['Helix Fossil','Dome Fossil','Not now'],c=>{if(c>1)return;const k=c===0?'helixfossil':'domefossil';f.given=k;state.items[k]=(state.items[k]||0)+1;save();
+          owSay([`${P().name} received the ${ITEMS[k].n}!`,'Dr. Ammonite: Take it to Tobias at the revival machines in this office.'])})}},
+    {id:'mus_reviver',sheet:'scientist_m',x:26,y:6,dir:'down',say:()=>{const f=F();const has=Object.keys(FOSSILS).find(k=>(state.items[k]||0)>0);
+        if(has)return['Tobias: Is that a fossil? The machine is warmed up.'];
+        if(f.revived)return['Tobias: How’s your old friend doing? Fossil Pokémon love to be out of the rock.'];
+        return['Tobias: These machines can bring a fossil Pokémon back to life.','Dr. Ammonite decides who gets one, though.']},
+      then:()=>{const has=Object.keys(FOSSILS).find(k=>(state.items[k]||0)>0);if(!has)return;
+        owChoose([`Revive the ${ITEMS[has].n}`,'Not yet'],c=>{if(c!==0)return;state.items[has]--;F().revived=true;const m=give(FOSSILS[has].mon,10);
+          owSay(['Tobias: Into the machine it goes…','…','The machine whirred and glowed!',`${nm(m)} came back to life!`,state.party.includes(m)?`${nm(m)} joined your party.`:`${nm(m)} was sent to storage.`])})}},
+    {id:'mus_kid',sheet:'school_kid_f',x:10,y:10,dir:'up',say:S(['Whoa… a real Wardstone piece. My teacher says there are five of them out there.'])},
+    {id:'mus_miner',sheet:'worker',x:16,y:4,dir:'up',say:S(['My grandfather dug the first shaft here. Those are his tools in the case. That dent? Long story.'])},
+    {id:'mus_old',sheet:'old_man',x:3,y:8,dir:'left',say:S(['When I was a boy this valley flooded every spring. We found shells in the mud afterwards.','Turns out they were fossils. Who knew.'])},
+    {id:'mus_lass',sheet:'lass',x:18,y:9,dir:'down',wander:true,say:S(['I come here to sketch the statues. Nobody can tell me which Pokémon they’re supposed to be.'])}];
+}}
 buildPixelCache().then(npcInit,npcInit).then(titleScreen,titleScreen);
 </script>
 
