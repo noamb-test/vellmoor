@@ -12499,10 +12499,16 @@ function gymHedge(M,h){const s=gym2S(M);s.cut=s.cut||new Set();const k=h[0]+','+
 /* ================= the seven gyms ================= */
 {const M=OW_MAPS.a4_gym;if(M){const gates=[{id:'q1',x:9,y:15,who:'Marlo',lv:0},{id:'q2',x:9,y:12,who:'Tidus',lv:1},{id:'q2b',x:4,y:12,who:'Pearl',lv:1},{id:'q3',x:12,y:8,who:'Wade',lv:2}];
   const signs={};for(const g of gates)signs[g.x+','+g.y]=()=>gymQuizAsk(M,g);
-  gym2Def('a4_gym',{src:'CeruleanCity_Gym',img:'ceruleancity_gym',exitX:[7,8,9],exitY:18,entry:[8,17],statues:[[6,17],[10,17]],
+  gym2Def('a4_gym',{src:'CeruleanCity_Gym',img:'cerulean_hgwater',exitX:[7,8,9],exitY:18,entry:[8,17],statues:[[6,17],[10,17]],
     leader:[8,6,'down'],gt:[7,8,'up',2],e2:[6,16,'right',3],e3:[4,7,'right',3],guide:[10,18],signs,
     tip:['This is the Tide Quiz! Water spouts block the walkways.','Answer the quiz at each spout to sink it. Get it wrong and a swimmer jumps out to battle you!'],
-    pz:{type:'quiz',gates}})}}
+    pz:{type:'quiz',gates}});
+  /* swimmers waiting in the pool: they call out as you walk past */
+  const g=gymOf(M),sw=[['sw1','Kai','swimmer_m',8,14,'right',0,'The water’s great! Want to battle in it?','You swim well for someone on dry land.'],
+    ['sw2','Marina','swimmer_f',5,11,'left',1,'Splash! Caught you on the walkway!','I’ll get you next time. Back to my laps.'],
+    ['sw3','Finn','swimmer_m',13,9,'left',2,'Nerissa’s right up there. You have to beat me first!','Go on. Nerissa’s waiting on her diving board.']];
+  for(const[id,name,sheet,x,y,dir,lv,intro,after]of sw){const team=autoTeam(g.type,Math.max(1,Math.floor(g.size/2)),g.ace-6+lv,'Swimmer'+name,g.alt);
+    const n=owNpcFn({id:'a4_gym_'+id,cls:'Swimmer',name,sheet,x,y,dir,sight:1,team,intro,after},M,'a4_gym');if(n)M.npcs.push(n)}}}
 {const M=OW_MAPS.a6_gym;if(M){const gates={g1:[[26,8],[27,8],[26,9],[27,9]],g2:[[17,8],[18,8],[17,9],[18,9]],g3:[[17,15],[18,15],[17,16],[18,16]],g4:[[11,22],[11,23]],g5:[[5,16],[6,16],[5,17],[6,17]],g6:[[5,8],[6,8],[5,9],[6,9]]};
   const valves=[[[22,10],[23,10],'g1'],[[15,2],[16,2],'g2'],[[13,10],[14,10],'g3'],[[13,17],[14,17],'g4'],[[1,18],[2,18],'g5'],[[1,10],[2,10],'g6']];
   const signs={};for(const[a,b,id]of valves){const f=()=>gymHeatValve(M,{opens:id});signs[a.join(',')]=f;signs[b.join(',')]=f}
