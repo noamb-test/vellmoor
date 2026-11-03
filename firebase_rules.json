@@ -21,6 +21,20 @@
         ".read": "auth != null && auth.uid === $uid",
         ".write": "auth != null && auth.uid === $uid"
       }
+    },
+    "invites": {
+      "$to": {
+        ".read": "auth != null && auth.uid === $to",
+        "$from": {
+          ".write": "auth != null && (auth.uid === $from || auth.uid === $to)"
+        }
+      }
+    },
+    "battles": {
+      "$bid": {
+        ".read": "auth != null && (data.child('a').val() === auth.uid || data.child('to').val() === auth.uid)",
+        ".write": "auth != null && ((!data.exists() && newData.child('a').val() === auth.uid) || data.child('a').val() === auth.uid || data.child('to').val() === auth.uid)"
+      }
     }
   }
 }

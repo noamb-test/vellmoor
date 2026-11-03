@@ -12242,6 +12242,136 @@ function mpGhosts(K,dt){const out=[],sp=dt*16/190;
   c.fillStyle='rgba(16,20,32,.6)';c.fillRect(4,4,w,11);c.fillStyle='#7ef0a0';c.fillRect(7,8,3,3);c.fillText(s,13,10);c.restore()}}
 /* other trainers are only drawn: they never block a step, take a talk, or start a battle */
 mpInit();
+/* ============ ONLINE BATTLES: challenge another trainer you meet in the world ============
+   Face another player and press Z (or A) to challenge them. Battles are friendly link battles:
+   both teams are fully healed for the fight, nobody gains or loses XP, gold or items, and your
+   party is exactly as it was afterwards.
+   How it runs: the challenger (host) runs the real battle engine; the other player's team is the
+   foe, and its moves come from that player instead of the AI. The host streams the battle (HP,
+   status, active Pokémon, log) to battles/<id>/snap, and the guest sends its picks to battles/<id>/act/<turn>. */
+const MPB={on:false,host:false,bid:null,ref:null,opp:null,oppName:'',T:0,want:null,real:null,out:[],n:0,seen:0,sent:-1,iv:null,snapT:-1,over:false,introDone:false};
+const pvpClone=o=>JSON.parse(JSON.stringify(o,(k,v)=>k==='st'?undefined:v));
+function pvpTeam(){const t=pvpClone(state.party);for(const m of t){ensureMoves(m);m.hp=stats(m).maxhp;m.st={};m.status=null;m.slp=0;m.pp=m.pp||{};for(const id of m.moves)m.pp[id]=ppMax(id)}return t}
+function pvpTrainer(name,look){const f=look&&look.gender==='female';return{n:name,title:'Traveler',sheet:f?'ace_trainer_f':'ace_trainer_m',line:'Let’s see what your team can do!'}}
+function pvpBusy(){return!!(B||!OWK||OWK.msg||OWK.choose||MPB.on||(typeof PTU!=='undefined'&&PTU)||(typeof HGD!=='undefined'&&HGD))}
+
+/* ---- challenging ---- */
+{const _act=owAct;owAct=function(){const K=OWK;
+  if(K&&MP.user&&!K.choose&&!K.msg&&!K.moving&&!K.busy){const[x,y]=owFacing(K);const g=Object.values(MP.ghosts).find(g=>g.x===x&&g.y===y);
+    if(g&&!owNpcAt(K,x,y))return owChoose([`Battle ${g.n}`,'Cancel'],i=>{if(i===0)pvpChallenge(g)})}
+  return _act.apply(this,arguments)}}
+function pvpChallenge(g){if(!state.party.length)return owSay(['You need a Pokémon to battle.']);
+  const bid=MP.user.uid+'_'+Date.now().toString(36),ref=MP.db.ref('battles/'+bid);
+  ref.set({a:MP.user.uid,to:g.id,an:MP.name,bn:g.n,aTeam:JSON.stringify(pvpTeam()),aLook:mpLook(),t:MP_TS()}).then(()=>
+    MP.db.ref('invites/'+g.id+'/'+MP.user.uid).set({n:MP.name,bid,t:MP_TS()})).catch(e=>owSay(['Couldn’t send the challenge.',mpErr(e)]));
+  toast(`<b>Challenge sent</b><span>Waiting for ${mpEsc(g.n)} to answer…</span>`);
+  let done=false;const stop=()=>{done=true;ref.off();clearTimeout(to)};
+  const to=setTimeout(()=>{if(done)return;stop();MP.db.ref('invites/'+g.id+'/'+MP.user.uid).remove().catch(()=>{});ref.remove().catch(()=>{});toast(`<b>No answer</b><span>${mpEsc(g.n)} didn’t answer the challenge.</span>`)},40000);
+  ref.on('value',s=>{const v=s.val();if(done||!v)return;
+    if(v.declined){stop();ref.remove().catch(()=>{});toast(`<b>Challenge declined</b><span>${mpEsc(g.n)} ${v.declined==='busy'?'is busy right now':'said no this time'}.</span>`);return}
+    if(v.bTeam){stop();pvpStart(true,bid,{uid:g.id,name:v.bn||g.n,team:JSON.parse(v.bTeam),look:v.bLook})}})}
+
+/* ---- being challenged ---- */
+function pvpListenInvites(){if(MPB.inv){MPB.inv.off();MPB.inv=null}if(!MP.user)return;
+  MPB.inv=MP.db.ref('invites/'+MP.user.uid);
+  MPB.inv.on('child_added',s=>{const v=s.val(),from=s.key;s.ref.remove().catch(()=>{});if(!v||!v.bid)return;
+    if(v.t&&Date.now()-v.t>45000)return;
+    const bref=MP.db.ref('battles/'+v.bid);
+    if(pvpBusy()){bref.update({declined:'busy'}).catch(()=>{});return}
+    OWK.held=[];owSay([`${v.n} wants to battle!`],()=>owChoose(['Accept','Decline'],i=>{
+      if(i!==0){bref.update({declined:'no'}).catch(()=>{});return}
+      bref.once('value').then(b=>{const d=b.val();if(!d||d.declined){owSay(['The challenge was called off.']);return}
+        const team=pvpTeam();bref.update({bTeam:JSON.stringify(team),bLook:mpLook(),bn:MP.name}).then(()=>
+          pvpStart(false,v.bid,{uid:from,name:d.an||v.n,team:JSON.parse(d.aTeam),look:d.aLook},team))})}))})}
+{const _ac=mpAuthChanged;mpAuthChanged=async function(u){const r=await _ac.apply(this,arguments);try{pvpListenInvites()}catch(e){}return r}}
+
+/* ---- starting: both sides fight with healed copies of their teams ---- */
+function pvpStart(host,bid,opp,myTeam){
+  Object.assign(MPB,{on:true,host,bid,opp:opp.uid,oppName:opp.name,T:0,want:null,real:state.party,out:[],n:0,seen:0,sent:-1,snapT:-1,over:false,introDone:false,acts:{},lastSnap:''});
+  state.party=myTeam||pvpTeam();
+  MPB.ref=MP.db.ref('battles/'+bid);MPB.ref.child('gone/'+MP.user.uid).onDisconnect().set(true);
+  MPB.ref.child('gone/'+opp.uid).on('value',s=>{if(s.val()&&MPB.on&&!MPB.over)pvpOver(null,`${mpEsc(MPB.oppName)} left the battle.`)});
+  if(typeof owStop==='function')owStop();
+  const cfg={kind:'trainer',trainer:pvpTrainer(opp.name,opp.look),foes:opp.team.map(m=>Object.assign(m,{st:{}})),gold:0,pvp:true,indoor:true};
+  if(host){
+    MPB.ref.child('act').on('child_added',s=>{const v=s.val();MPB.acts[s.key]=v;if(v&&v.kind==='forfeit'&&!MPB.over){MPB.want=null;return pvpOver(true,`${mpEsc(MPB.oppName)} forfeited. You win!`)}if(MPB.want)MPB.want()});
+    MPB.iv=setInterval(pvpSnap,250);
+  }else{
+    MPB.ref.child('snap').on('value',s=>{const v=s.val();if(v&&v.j)try{pvpApply(JSON.parse(v.j))}catch(e){console.warn('pvp snap',e)}});
+    MPB.ref.child('over').on('value',s=>{const v=s.val();if(v&&!MPB.over)pvpOver(v.winner===MP.user.uid,v.winner===MP.user.uid?`You beat ${mpEsc(MPB.oppName)}!`:`${mpEsc(MPB.oppName)} won the battle.`)});
+  }
+  battle(cfg)}
+
+/* no XP, gold, quest counts or saving during a link battle */
+{const _sv=save;save=function(){if(MPB.on)return;return _sv.apply(this,arguments)}}
+{const _b=bump;bump=function(){if(MPB.on)return;return _b.apply(this,arguments)}}
+{const _x=awardXP;awardXP=function(){if(MPB.on)return;return _x.apply(this,arguments)}}
+{const _ai=aiPick;aiPick=function(f,p){if(MPB.on&&MPB.host&&MPB.foeMove)return MPB.foeMove;return _ai.apply(this,arguments)}}
+{const _t=turn;turn=function(att,def,id,side){if(MPB.on&&MPB.host&&side==='f'&&MPB.skipFoe)return Promise.resolve();return _t.apply(this,arguments)}}
+{const _L=L;L=function(html,cls){const r=_L.apply(this,arguments);if(MPB.on&&MPB.host&&MPB.introDone&&!MPB.over){MPB.out.push([html,cls||'']);MPB.n++;if(MPB.out.length>40)MPB.out.shift()}return r}}
+{const _w=winBattle;winBattle=function(){if(MPB.on&&B&&B.pvp)return pvpOver(true,`You beat ${mpEsc(MPB.oppName)}!`);return _w.apply(this,arguments)}}
+{const _l=loseBattle;loseBattle=function(){if(MPB.on&&B&&B.pvp)return pvpOver(false,`${mpEsc(MPB.oppName)} won the battle.`);return _l.apply(this,arguments)}}
+
+function pvpWait(txt){const m=document.getElementById('menu');if(m)m.innerHTML=`<div class="pvpWait"><span class="pvpSpin"></span>${txt}</div>`}
+const PVP_NOPE=a=>a.kind==='item'||a.kind==='rune';
+{const _act=act;act=async function(a){
+  if(!MPB.on||!B||!B.pvp)return _act.apply(this,arguments);
+  if(B.ended||MPB.over)return;
+  if(PVP_NOPE(a)){toast('<b>Not in a link battle</b><span>Items and Poké Balls can’t be used against another trainer.</span>');return setMenu('main')}
+  if(a.kind==='run'){if(!confirm('Forfeit this battle?'))return setMenu('main');
+    if(MPB.host)return pvpOver(false,'You forfeited the battle.');
+    MPB.ref.child('act/'+MPB.T).set({kind:'forfeit'});return pvpOver(false,'You forfeited the battle.')}
+  if(!MPB.host){ // guest: send the pick to the host, then wait for the result
+    if(B.busy)return;B.busy=true;setMenu('none');MPB.sent=MPB.T;
+    await MPB.ref.child('act/'+MPB.T).set(a.kind==='switch'?{kind:'switch',idx:a.idx}:{kind:'move',id:a.id});
+    pvpWait(`Waiting for ${mpEsc(MPB.oppName)}…`);return}
+  // host
+  if(a.kind==='switch'&&B.forced)return _act.apply(this,arguments);
+  if(B.busy)return;MPB.introDone=true;B.busy=true;setMenu('none');
+  let g=MPB.acts[MPB.T];if(!g){pvpWait(`Waiting for ${mpEsc(MPB.oppName)}…`);g=await new Promise(r=>{MPB.want=()=>{if(MPB.acts[MPB.T]){MPB.want=null;r(MPB.acts[MPB.T])}}});}
+  if(MPB.over)return;
+  if(g.kind==='forfeit')return pvpOver(true,`${mpEsc(MPB.oppName)} forfeited. You win!`);
+  MPB.skipFoe=false;MPB.foeMove=null;
+  if(g.kind==='switch'&&B.foes[g.idx]&&B.foes[g.idx].hp>0&&g.idx!==B.foeIdx){
+    L(`${mpEsc(MPB.oppName)} calls back <b>${nm(fm())}</b>.`);if(typeof recall==='function')await recall('f');B.foeIdx=g.idx;B.part=new Set([pm().uid]);
+    L(`${mpEsc(MPB.oppName)} sends out <b>${nm(fm())}</b>!`);updateCombatants(true);if(typeof sendOut==='function')await sendOut('f');MPB.skipFoe=true}
+  else{const f=fm();MPB.foeMove=(g.kind==='move'&&f.moves.includes(g.id)&&(!f.pp||f.pp[g.id]>0))?g.id:(usable(f)[0]||'struggle')}
+  B.busy=false;
+  try{await _act.call(this,a)}finally{MPB.skipFoe=false;MPB.foeMove=null;MPB.T++;pvpSnap(true)}}}
+
+/* ---- host → guest stream ---- */
+const pvpMon=m=>({hp:m.hp,status:m.status||null,slp:m.slp||0,pp:m.pp||{},st:m.st||{}});
+function pvpSnap(force){if(!MPB.on||!MPB.host||!B||MPB.over)return;
+  const s={T:MPB.T,ha:B.active,ga:B.foeIdx,hp:state.party.map(pvpMon),gp:B.foes.map(pvpMon),n:MPB.n,log:MPB.out,forced:!!B.forced,busy:!!B.busy};
+  const j=JSON.stringify(s);if(j===MPB.lastSnap&&!force)return;MPB.lastSnap=j;MPB.ref.child('snap').set({j}).catch(()=>{})}
+function pvpFlip(h){const me=MP.name,op=MPB.oppName;
+  return String(h).replace(/\bYour /g,'\u0001').replace(/\byour /g,'\u0002').replace(/\bFoe /g,'Your ').replace(/\bfoe /g,'your ').replace(/\u0001/g,'Foe ').replace(/\u0002/g,'the foe’s ').replace(new RegExp(mpRe(me)+' sends out','g'),'You send out').replace(new RegExp(mpRe(me)+' calls back','g'),'You call back')
+    .replace(/You act first\./g,'__THEY__').replace(/They act first\./g,'You act first.').replace(/__THEY__/g,'They act first.')}
+const mpRe=s=>String(s).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+function pvpApply(s){if(!MPB.on||MPB.host||!B||MPB.over)return;
+  const mine=state.party,theirs=B.foes;let swap=false;
+  const put=(m,v,side)=>{if(!m||!v)return;const d=m.hp-v.hp;Object.assign(m,{hp:v.hp,status:v.status,slp:v.slp,pp:v.pp||m.pp,st:v.st||{}});if(d>0){try{hitReact(side);floatText(side,'−'+d,'dmg')}catch(e){}}};
+  (s.gp||[]).forEach((v,i)=>put(mine[i],v,'p'));(s.hp||[]).forEach((v,i)=>put(theirs[i],v,'f'));
+  if(s.ga!==B.active||s.ha!==B.foeIdx){B.active=s.ga;B.foeIdx=s.ha;swap=true}
+  const first=s.n-(s.log||[]).length;(s.log||[]).forEach(([h,c],i)=>{if(first+i>=MPB.seen)L(pvpFlip(h),c)});MPB.seen=Math.max(MPB.seen,s.n||0);
+  try{updateCombatants(swap)}catch(e){}
+  if(s.T>MPB.snapT){MPB.snapT=s.T}MPB.T=s.T;
+  if(MPB.sent<s.T&&!B.ended){if(B.busy||swap||document.querySelector('.pvpWait')||!document.querySelector('#menu button')){B.busy=false;setMenu(pm()&&pm().hp>0?'main':'none')}}
+  else if(MPB.sent>=s.T)pvpWait(`Waiting for ${mpEsc(MPB.oppName)}…`)}
+
+/* ---- the end: put everyone's real team back ---- */
+function pvpOver(win,msg){if(!MPB.on||MPB.over)return;
+  if(MPB.host)pvpSnap(true);MPB.over=true;
+  if(MPB.host){MPB.ref.child('over').set({winner:win===true?MP.user.uid:win===false?MPB.opp:null}).catch(()=>{})}
+  clearInterval(MPB.iv);MPB.iv=null;
+  const done=()=>{if(!MPB.on)return;MPB.on=false;try{MPB.ref.off();['act','snap','over'].forEach(k=>MPB.ref.child(k).off());MPB.ref.child('gone/'+MPB.opp).off();MPB.ref.child('gone/'+MP.user.uid).onDisconnect().cancel()}catch(e){}
+    state.party=MPB.real;MPB.real=null;state.party.forEach(m=>m.st={});
+    if(MPB.host)setTimeout(()=>MPB.ref&&MPB.ref.remove().catch(()=>{}),4000);save()};
+  if(B){B.ended=true;B.busy=false;try{setActor(null)}catch(e){}L(msg,win?'big':win===false?'bad':'sys');L('Link battle over. Your team is back exactly as it was.','sys');
+    B.cont=()=>{done();clearSt();mapScreen()};setMenu('end')}else done();
+  return true}
+{const st=document.createElement('style');st.textContent=`.pvpWait{display:flex;align-items:center;justify-content:center;gap:10px;padding:18px;font-size:15px;color:var(--muted,#aab)}
+.pvpSpin{width:14px;height:14px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:pvpSpin .8s linear infinite}@keyframes pvpSpin{to{transform:rotate(360deg)}}`;document.head.appendChild(st)}
 buildPixelCache().then(npcInit,npcInit).then(titleScreen,titleScreen);
 </script>
 
