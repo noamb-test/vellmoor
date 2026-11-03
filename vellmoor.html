@@ -12138,6 +12138,9 @@ function mpErr(e){const c=(e&&e.code)||'';
   if(c.includes('invalid-credential')||c.includes('wrong-password')||c.includes('user-not-found')||c.includes('invalid-login'))return'Wrong username or password.';
   if(c.includes('too-many-requests'))return'Too many tries. Wait a minute and try again.';
   if(c.includes('network'))return'Can’t reach the server. Check your connection.';
+  if(c.includes('api-key-not-valid')||c.includes('invalid-api-key'))return'The game’s online key isn’t valid. Tell Noam to check mp_config.js.';
+  if(c.includes('unauthorized-domain'))return'This website isn’t on the allowed list (Firebase → Authentication → Settings → Authorized domains).';
+  if(c.includes('permission-denied')||c.includes('PERMISSION_DENIED'))return'The server refused that. Check the database rules.';
   if(c.includes('operation-not-allowed'))return'Username sign-in isn’t switched on for this game yet (Firebase → Authentication → Email/Password).';
   return(e&&e.message)||'Something went wrong.'}
 async function mpSignup(name,pw){if(!MP_NAME.test(name))throw{message:'Usernames are 3–16 letters, numbers or _.'};
