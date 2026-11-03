@@ -12381,6 +12381,168 @@ function pvpOver(win,msg){if(!MPB.on||MPB.over)return;
   return true}
 {const st=document.createElement('style');st.textContent=`.pvpWait{display:flex;align-items:center;justify-content:center;gap:10px;padding:18px;font-size:15px;color:var(--muted,#aab)}
 .pvpSpin{width:14px;height:14px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:pvpSpin .8s linear infinite}@keyframes pvpSpin{to{transform:rotate(360deg)}}`;document.head.appendChild(st)}
+/* ============ GYMS 2–8, REBUILT: every gym has its own kind of challenge ============
+   Each gym now uses a real FireRed gym room and a gimmick of its own:
+   2 Water  (Port Brinegate)  – the Tide Quiz: answer the quiz at each water spout; a wrong answer calls up a swimmer to battle.
+   3 Fire   (Cinderhold)      – the Furnace: every step heats you up; coolant valves cool you and open the next flame door.
+   4 Ghost  (Fenhollow)       – the Unseen Hall: invisible walls in the dark; light lanterns to see.
+   5 Flying (Galeholm)        – the Gale Floor: gust tiles throw you until you land on a calm (yellow) tile.
+   6 Electric (Voltmark)      – the Switch Hunt: two switches hide in the bins; the second is always next to the first.
+   7 Grass  (Briarhaven)      – the Pruning Garden: your partner can only cut 2 hedges, so choose your path.
+   8 Dark   (Nightcrest)      – the Shadow Rooms: warp pads link nine rooms; find the chain to Vesper.
+   Progress lasts until you walk out of the gym (battles don't reset it). */
+const GYM2_COLL={"CeruleanCity_Gym":["11111111111111111","11111010001011111","11111111111111111","10000000000000001","10010001110001001","10111111111111101","10111110101111101","10110000000001101","10111110001101101","10111111111101101","10110000000001101","10110111101111101","10110111101111101","10110000001111101","10111111101111101","10111111101111101","10111100000111101","10111110001111101","10010000000001001","11111111111111111"],"VermilionCity_Gym":["11111111111","11111111111","10010001001","10000000001","10000000001","10000000001","11111111111","11111111111","00000000000","00000000000","01010101010","00000000000","01010101010","00000000000","01010101010","00000000000","00000000000","00010001000","00000000000","00000000000","11111111111"],"CeladonCity_Gym":["1111110111111","1111111111111","1000000000001","1001111111001","1101100001011","1000000001001","1001000000001","1001000001001","1001110111001","1001100011001","1000000000011","1100000000001","1000000000001","1001100011001","1001100011001","1000000000001","1000100010001","1000000000001","1000000000001","1111111111111"],"CinnabarIsland_Gym":["111110111111111111111111111111","111111111111111111111111111111","111000001111100110000000000001","100000000011100000000000000001","100000000011100000000000000001","100000000011100000000100000001","100000000011100000000100000001","100000000011100000000100000001","111110011111111110011111110011","111111111111111111111111111111","111000000011111000000111000001","100000000011100000000100000001","100000000011100000000100000001","100000000011100000000100000001","100000000011100000000111110001","100000000011111110011111110001","111110011111111111111100000001","111111111111111000000100000001","111000000011100000000100000001","100000000011100000000100000001","100000000011100000000101000101","100000000011100000000100000001","100000000001000000000100000001","100000000001000000000100000001","111111111111111111111111111111"],"FuchsiaCity_Gym":["111111111111111","111111111111111","000000000000000","000111100001000","000000011001000","111000010001000","000000010001000","000000010001000","000000010010000","100111100010000","100000000010000","000111111110000","000000000010000","000100000001000","111100000001000","000100000001000","000111111111000","000000000000000","000000000000000","000010000010000","000000000000000","000000000000000","111111111111111"],"SaffronCity_Gym":["11111111111111111111111111111","11111111111111111111111111111","00000000010000000001000000000","00000000010000000001000000000","00000000010000000001000000000","00000000010000000001000000000","00000000010000000001000000000","00000000010000000001000000000","11111111111111111111111111111","11111111111111111111111111111","00000000010000000001000000000","00000000010000000001000000000","00000000010000000001000000000","00000000010000000001000000000","00000000010000000001000000000","00000000010000000001000000000","11111111111111111111111111111","11111111111111111111111111111","00000000010000000001000000000","00000000010000000001000000000","00000000010010001001000000000","00000000010000000001000000000","00000000010000000001000000000","00000000010000000001000000000","11111111111111111111111111111"],"ViridianCity_Gym":["11111111111111111111","11111111111111111111","10001000000000000000","10001000000000000000","10001110110111111100","10001110110111111100","10000000100100000100","10000001110000000100","11111101111111100100","11111101011111100100","00000101000000000100","00000101000000110100","00110101000000110100","00110101000000010100","00110001000000010100","00110111111111000000","00110111111111000000","00110000000000000000","00110000000000000000","00111111111111000000","00111111111111010001","00000000000000000000","00000000000000000000","11111111111111111111"]};
+const GYM2={};
+function gym2Def(key,o){const old=OW_MAPS[key];if(!old)return;const out=Object.values(old.exits||{})[0];const M=old;
+  const coll=GYM2_COLL[o.src].slice();for(const[x,y,c]of(o.set||[]))coll[y]=coll[y].slice(0,x)+c+coll[y].slice(x+1);
+  Object.assign(M,{w:coll[0].length,h:coll.length,img:o.img,coll,grass:coll.map(r=>'0'.repeat(r.length)),warps:o.warps||{},counter:[],pz:o.pz,vmHoles:null,vmFurn:null});
+  M.exits={};for(const x of o.exitX)M.exits[x+','+o.exitY]=out.slice();
+  M.signs={};for(const[x,y]of o.statues)M.signs[x+','+y]=owPzSign('@statue',M);
+  for(const[k,f]of Object.entries(o.signs||{}))M.signs[k]=f;
+  const npcs=[{role:'gymLeader',x:o.leader[0],y:o.leader[1],dir:o.leader[2]||'down'},{role:'gymTrainer',x:o.gt[0],y:o.gt[1],dir:o.gt[2],sight:o.gt[3]},
+    {role:'gymExtra',k:2,x:o.e2[0],y:o.e2[1],dir:o.e2[2],sight:o.e2[3]},{role:'gymExtra',k:3,x:o.e3[0],y:o.e3[1],dir:o.e3[2],sight:o.e3[3]},
+    {sheet:'gym_guide',x:o.guide[0],y:o.guide[1],dir:'down',say:['Yo! Champ in the making!',...o.tip]}];
+  M.npcs=npcs.map(n=>owNpcFn(n,M,key)).filter(Boolean);
+  GYM2[key]={entry:o.entry};delete OW_PZ[key]}
+/* walking in from town lands on the new entrance */
+{const _w=owWarp;owWarp=function(map,x,y,dir){const g=GYM2[map];if(g&&!(OWK&&OWK.map&&OWK.map.key===map)){x=g.entry[0];y=g.entry[1];dir='up'}return _w.call(this,map,x,y,dir)}}
+const gym2S=M=>owPzState(M);
+const gymOf=M=>GYMS[owGymIdx(M.area)];
+function gym2Fight(M,id,cls,name,line,lvl,onWin){const g=gymOf(M);owStop();const sz=Math.max(1,Math.floor(g.size/2));
+  const foes=autoTeam(g.type,sz,g.ace-6+lvl,cls+name,g.alt).map(([sp,l])=>makeMon(RZ(sp,'t'),l));
+  battle({kind:'trainer',indoor:true,trainer:{n:`${cls} ${name}`,title:'Gym Trainer',line},foes,gold:foes.reduce((s,m)=>s+m.lvl*8,0),onWin:()=>{state.owBeat=state.owBeat||{};state.owBeat[id]=true;if(onWin)onWin();return''}})}
+const gymHas=(L,x,y)=>L&&L.some(t=>t[0]===x&&t[1]===y);
+
+/* ---------- 2 · WATER: the Tide Quiz ---------- */
+const GYM_QUIZ=[
+ ['Which type is super effective against Water?',['Grass','Fire','Rock'],0],
+ ['Which of these is NOT weak to Water?',['Fire','Ground','Dragon'],2],
+ ['What does a Water move do to a Fire-type Pokémon?',['Double damage','Half damage','Nothing'],0],
+ ['Which move gets stronger in the rain?',['Water Gun','Ember','Vine Whip'],0],
+ ['Which type resists Water attacks?',['Water','Normal','Rock'],0],
+ ['Squirtle evolves into…',['Wartortle','Blastoise','Psyduck'],0],
+ ['Electric moves against a Water-type are…',['super effective','not very effective','no effect'],0],
+ ['What is the d20 roll you need for a guaranteed hit in Vellmoor?',['A natural 20','A 10','Any odd number'],0],
+ ['Which Pokémon is a pure Water type?',['Magikarp','Gyarados','Lapras'],0],
+ ['Ice moves against Water-types are…',['not very effective','super effective','normal damage'],0],
+ ['Which item heals a burned or poisoned Pokémon of any status?',['Full Heal','Potion','Poké Ball'],0],
+ ['Grass-types take what from Water moves?',['Half damage','Double damage','No damage'],0]];
+function gymQuizAsk(M,gate){const s=gym2S(M);s.open=s.open||new Set();if(s.open.has(gate.id))return['The water spout has sunk. The way is clear.'];
+  const used=s.qUsed||(s.qUsed=new Set());let qi=s.qFor&&s.qFor[gate.id];
+  if(qi===undefined){const pool=GYM_QUIZ.map((_,i)=>i).filter(i=>!used.has(i));qi=pool[Math.floor(Math.random()*pool.length)];(s.qFor||(s.qFor={}))[gate.id]=qi;used.add(qi)}
+  const[q,ans,ok]=GYM_QUIZ[qi],order=[0,1,2].sort(()=>Math.random()-.5);
+  owSay(['A water spout blocks the walkway. A quiz panel glows beside it.',`QUIZ: ${q}`],()=>owChoose(order.map(i=>ans[i]),c=>{
+    if(order[c]===ok){s.open.add(gate.id);owPzSfx();owSay(['Ding ding! Correct!','The water spout sinks back into the pool.'])}
+    else owSay(['Bzzzt! Wrong answer!',`A swimmer bursts out of the pool: “${gate.who} won’t let you through that easily!”`],()=>
+      gym2Fight(M,'quiz_'+M.key+'_'+gate.id,'Swimmer',gate.who,'Wrong answers get you wet!',gate.lv,()=>{s.open.add(gate.id)}))}));return null}
+
+/* ---------- 3 · FIRE: the Furnace ---------- */
+const HEAT_MAX=30;
+function gymHeatValve(M,v){const s=gym2S(M);s.open=s.open||new Set();s.heat=0;
+  if(s.open.has(v.opens))return['You cranked the coolant valve. A blast of cold mist!','Your heat drops back to zero.'];
+  s.open.add(v.opens);owPzSfx();return['You cranked the coolant valve. A blast of cold mist!','Your heat drops back to zero, and somewhere a flame door gutters out!']}
+
+/* ---------- 6 · ELECTRIC: the Switch Hunt ---------- */
+function gymCanCheck(M,i){const s=gym2S(M),p=M.pz;if(s.solved)return['Just an empty bin now.'];
+  if(s.first===undefined)s.first=Math.floor(Math.random()*p.cans.length);
+  if(!s.got1){if(i===s.first){s.got1=true;const nb=p.cans.map((c,j)=>j).filter(j=>Math.abs(p.cans[j][0]-p.cans[i][0])+Math.abs(p.cans[j][1]-p.cans[i][1])===2&&(p.cans[j][0]===p.cans[i][0]||p.cans[j][1]===p.cans[i][1]));
+      s.second=nb[Math.floor(Math.random()*nb.length)];owPzSfx();return['There’s a switch under the trash!','You pressed it. The first electric lock opened!','The second switch must be in a bin right next to this one.']}
+    return['Nope, there’s only trash here.']}
+  if(i===s.second){s.solved=true;owPzSfx();return['There’s another switch under the trash!','You pressed it. The second electric lock opened!','The electric barrier to the Leader is down!']}
+  if(i===s.first)return['The switch here is already pressed.'];
+  s.got1=false;s.first=Math.floor(Math.random()*p.cans.length);s.second=undefined;owPzSfx();return['Only trash here… Bzzt!','The electric locks reset! The switches moved somewhere new.']}
+
+/* ---------- 7 · GRASS: the Pruning Garden ---------- */
+const HEDGE_CUTS=2;
+function gymHedge(M,h){const s=gym2S(M);s.cut=s.cut||new Set();const k=h[0]+','+h[1];if(s.cut.has(k))return['Just a stump. It will grow back when you leave.'];
+  const left=HEDGE_CUTS-s.cut.size,P=state.party.find(m=>m.hp>0);
+  if(left<=0)return['A thick hedge. Your partner is too tired to cut any more.','Leave the gym and come back to try a different path.'];
+  owSay([`A thick hedge. ${P?nm(P):'Your partner'} can cut ${left} more hedge${left===1?'':'s'} today.`],()=>owChoose(['Cut it','Leave it'],c=>{if(c!==0)return;
+    s.cut.add(k);owPzSfx();owSay([`${P?nm(P):'Your partner'} used Cut!`,`The hedge was cut down. ${HEDGE_CUTS-s.cut.size} cut${HEDGE_CUTS-s.cut.size===1?'':'s'} left.`])}));return null}
+
+/* ---------- walls that come and go ---------- */
+{const _b=owPzBlocked;owPzBlocked=function(K,x,y,b){const M=K.map,p=M.pz;if(!p)return b;const s=gym2S(M);
+  if(p.type==='quiz'){const g=p.gates.find(g=>g.x===x&&g.y===y);if(g)return!(s.open&&s.open.has(g.id));return b}
+  if(p.type==='heat'){for(const[id,cells]of Object.entries(p.gates))if(gymHas(cells,x,y))return!(s.open&&s.open.has(id));return b}
+  if(p.type==='cans'){if(gymHas(p.gate,x,y))return!s.solved;return b}
+  if(p.type==='hedge'){if(gymHas(p.hedges,x,y))return!(s.cut&&s.cut.has(x+','+y));return b}
+  return _b.apply(this,arguments)}}
+/* stepping: heat builds up; gust tiles throw you */
+{const _a=owArrive;owArrive=function(K){const M=K.map,p=M.pz,o=state.ow;
+  if(p&&p.type==='spin'&&!(M.warps&&M.warps[o.x+','+o.y])){const k=o.x+','+o.y;let d=p.arrows[k]||(p.stops.includes(k)?null:K.slide);
+    if(d){const[dx,dy]=OW_DIRS[d],x=o.x+dx,y=o.y+dy;if(!owBlocked(K,x,y)&&!owNpcAt(K,x,y)){K.slide=d;K.dir=d;K.moving={fx:o.x,fy:o.y,tx:x,ty:y,t:0,ms:80,fol:K.fol?{fx:K.fol.x,fy:K.fol.y,tx:o.x,ty:o.y}:null};K.gust=performance.now();return true}}
+    K.slide=null}
+  if(p&&p.type==='heat'){const s=gym2S(M);s.heat=(s.heat||0)+1;
+    if(s.heat>=HEAT_MAX&&!K.burning){K.burning=true;K.busy=true;K.held=[];s.heat=0;
+      owSay(['Phew! It’s way too hot!','You stagger back to the entrance to cool off.'],()=>{K.busy=false;K.burning=false;owWarp(M.key,p.start[0],p.start[1],'up')});return true}}
+  return _a.apply(this,arguments)}}
+{const _s=owStart;owStart=function(M){const r=_s.apply(this,arguments);if(OWK)OWK.slide=null;return r}}
+/* drawing */
+{const _u=owUnder;owUnder=function(K,cam,now){_u.apply(this,arguments);const M=K.map,p=M.pz;if(!p)return;const c=K.ctx,s=gym2S(M),X=x=>x*16-cam.x,Y=y=>y*16-cam.y;
+  if(p.type==='quiz')for(const g of p.gates){if(s.open&&s.open.has(g.id))continue;const px=X(g.x),py=Y(g.y);
+    c.fillStyle='rgba(40,110,220,.85)';c.fillRect(px+1,py+2,14,14);c.fillStyle='#8fd0ff';for(let k=0;k<3;k++){const h=(now/90+k*5+g.x*3)%14;c.fillRect(px+3+k*4,py+14-h,3,h)}
+    c.fillStyle='#ffffff';c.fillRect(px+2+((now/120)|0)%12,py+1,2,2);c.fillRect(px+12-((now/150)|0)%10,py+3,1,1)}
+  if(p.type==='heat')for(const[id,cells]of Object.entries(p.gates)){if(s.open&&s.open.has(id))continue;for(const[x,y]of cells){const px=X(x),py=Y(y);
+    c.fillStyle='rgba(200,40,10,.85)';c.fillRect(px,py+4,16,12);for(let k=0;k<4;k++){const h=6+((now/70+k*7+x*5+y*3)%7);c.fillStyle=k%2?'#ffb020':'#ff6010';c.fillRect(px+k*4,py+16-h,4,h)}
+    c.fillStyle='#fff0a0';c.fillRect(px+6,py+12,4,3)}}
+  if(p.type==='cans'&&!s.solved)for(const[x,y]of p.gate){const px=X(x),py=Y(y);c.fillStyle='rgba(255,236,120,.35)';c.fillRect(px,py,16,16);
+    c.strokeStyle=Math.floor(now/70)%2?'#ffffff':'#ffe040';c.lineWidth=2;c.beginPath();c.moveTo(px,py+8);for(let k=1;k<=4;k++)c.lineTo(px+k*4,py+8+((k+Math.floor(now/55)+y)%2?-5:5));c.stroke()}
+  if(p.type==='hedge'){const T=p.tree;for(const[x,y]of p.hedges){if(s.cut&&s.cut.has(x+','+y))continue;const px=X(x),py=Y(y);
+    if(owOk(K.lower))c.drawImage(K.lower,T[0]*16,T[1]*16,16,16,px,py,16,16);c.fillStyle='rgba(120,60,20,.9)';c.fillRect(px+6,py+12,4,3);const tw=Math.floor(now/400+x+y)%3;c.fillStyle='rgba(255,255,200,.9)';if(tw===0){c.fillRect(px+3,py+4,1,1);c.fillRect(px+11,py+8,1,1)}else if(tw===1)c.fillRect(px+8,py+3,1,1)}}}}
+/* the heat gauge and cut counter */
+{const _o=owOver;owOver=function(K,now){_o.apply(this,arguments);const M=K.map,p=M.pz;if(!p)return;const c=K.ctx,s=gym2S(M);
+  if(p.type==='heat'){const h=Math.min(1,(s.heat||0)/HEAT_MAX);c.fillStyle='rgba(16,10,8,.75)';c.fillRect(4,4,74,13);c.fillStyle='#402018';c.fillRect(24,7,50,7);
+    c.fillStyle=h>.75?(Math.floor(now/120)%2?'#ff3010':'#ffd040'):h>.5?'#ff8020':'#ffc040';c.fillRect(24,7,Math.round(50*h),7);
+    c.fillStyle='#fff';c.font='bold 7px "Vellmoor DS",monospace';c.textBaseline='middle';c.fillText('HEAT',6,11)}
+  if(p.type==='hedge'){const left=HEDGE_CUTS-(s.cut?s.cut.size:0);c.fillStyle='rgba(10,24,10,.7)';c.fillRect(4,4,58,13);c.fillStyle='#c8f0a0';c.font='bold 7px "Vellmoor DS",monospace';c.textBaseline='middle';c.fillText(`CUTS LEFT ${left}`,7,11)}}}
+
+/* ================= the seven gyms ================= */
+{const M=OW_MAPS.a4_gym;if(M){const gates=[{id:'q1',x:9,y:15,who:'Marlo',lv:0},{id:'q2',x:9,y:12,who:'Tidus',lv:1},{id:'q2b',x:4,y:12,who:'Pearl',lv:1},{id:'q3',x:12,y:8,who:'Wade',lv:2}];
+  const signs={};for(const g of gates)signs[g.x+','+g.y]=()=>gymQuizAsk(M,g);
+  gym2Def('a4_gym',{src:'CeruleanCity_Gym',img:'ceruleancity_gym',exitX:[7,8,9],exitY:18,entry:[8,17],statues:[[6,17],[10,17]],
+    leader:[8,6,'down'],gt:[7,8,'up',2],e2:[6,16,'right',3],e3:[4,7,'right',3],guide:[10,18],signs,
+    tip:['This is the Tide Quiz! Water spouts block the walkways.','Answer the quiz at each spout to sink it. Get it wrong and a swimmer jumps out to battle you!'],
+    pz:{type:'quiz',gates}})}}
+{const M=OW_MAPS.a6_gym;if(M){const gates={g1:[[26,8],[27,8],[26,9],[27,9]],g2:[[17,8],[18,8],[17,9],[18,9]],g3:[[17,15],[18,15],[17,16],[18,16]],g4:[[11,22],[11,23]],g5:[[5,16],[6,16],[5,17],[6,17]],g6:[[5,8],[6,8],[5,9],[6,9]]};
+  const valves=[[[22,10],[23,10],'g1'],[[15,2],[16,2],'g2'],[[13,10],[14,10],'g3'],[[13,17],[14,17],'g4'],[[1,18],[2,18],'g5'],[[1,10],[2,10],'g6']];
+  const signs={};for(const[a,b,id]of valves){const f=()=>gymHeatValve(M,{opens:id});signs[a.join(',')]=f;signs[b.join(',')]=f}
+  const set=[];for(const cells of Object.values(gates))for(const[x,y]of cells)set.push([x,y,'0']);
+  gym2Def('a6_gym',{src:'CinnabarIsland_Gym',img:'cinnabarisland_gym',set,exitX:[24,25,26],exitY:23,entry:[25,22],statues:[[23,20],[27,20]],
+    leader:[5,4,'down'],gt:[3,6,'right',3],e2:[16,12,'left',3],e3:[5,20,'left',3],guide:[24,20],signs,
+    tip:['Welcome to the Furnace! Every step you take heats you up.','Crank the coolant valves (the machines) to cool down. Each one also puts out a flame door. Overheat and you’re back at the start!'],
+    pz:{type:'heat',gates,start:[25,22]}})}}
+{const M=OW_MAPS.a8_gym;if(M){const lanterns=[[5,3],[4,9],[8,11],[11,14],[6,16],[1,5]];const signs={};
+  for(const[x,y]of lanterns)signs[x+','+y]=owPzSign('@lantern',M);
+  gym2Def('a8_gym',{src:'FuchsiaCity_Gym',img:'fuchsiacity_gym',exitX:[6,7,8],exitY:21,entry:[7,20],statues:[[4,19],[10,19]],
+    leader:[7,13,'down'],gt:[11,11,'left',2],e2:[2,16,'right',3],e3:[13,4,'down',3],guide:[11,19],signs,
+    tip:['This is the Unseen Hall. The walls here are invisible, and it’s pitch dark!','Feel your way along. Light the lanterns you find and the hall gets brighter.'],
+    pz:{type:'ghost',lanterns,r:22,lr:42}})}}
+{const M=OW_MAPS.a10_gym;if(M){const A={'19,2':'left','11,3':'right','18,3':'down','4,10':'down','16,13':'down','19,14':'up','5,17':'right','4,18':'right','0,20':'up','1,20':'up','13,21':'left','13,22':'left'};
+  const stops=['11,2','17,3','19,3','0,11','1,13','18,14','16,15','4,17','13,17','13,18','5,21','1,22'];
+  gym2Def('a10_gym',{src:'ViridianCity_Gym',img:'viridiancity_gym',exitX:[16,17,18],exitY:22,entry:[17,21],statues:[[15,20],[19,20]],
+    leader:[2,2,'down'],gt:[6,8,'down',3],e2:[12,10,'left',3],e3:[2,21,'right',3],guide:[16,20],
+    tip:['This is the Gale Floor! Step on an arrow and the wind throws you that way.','You keep flying until you land on a calm yellow tile or hit a wall.'],
+    pz:{type:'spin',arrows:A,stops}})}}
+{const M=OW_MAPS.a12_gym;if(M){const cans=[];for(const y of[10,12,14])for(const x of[1,3,5,7,9])cans.push([x,y]);
+  const signs={};cans.forEach(([x,y],i)=>signs[x+','+y]=()=>gymCanCheck(M,i));
+  const gate=[[4,6],[5,6],[6,6],[4,7],[5,7],[6,7]];
+  gym2Def('a12_gym',{src:'VermilionCity_Gym',img:'vermilioncity_gym',set:gate.map(([x,y])=>[x,y,'0']),exitX:[4,5,6],exitY:19,entry:[5,18],statues:[[3,17],[7,17]],
+    leader:[5,2,'down'],gt:[7,8,'down',2],e2:[2,11,'right',3],e3:[8,13,'left',3],guide:[4,17],signs,
+    tip:['Ohmar locked the barrier with two hidden switches!','They’re under the trash in these bins. Once you find the first, the second is always in a bin right next to it. Pick wrong and both reset!'],
+    pz:{type:'cans',cans,gate}})}}
+{const M=OW_MAPS.a14_gym;if(M){const hedges=[[6,8],[5,9],[6,9],[7,9],[3,5],[1,9],[2,9],[9,6],[10,8],[11,8],[10,9],[11,9]];
+  const signs={};for(const h of hedges)signs[h.join(',')]=()=>gymHedge(M,h);
+  gym2Def('a14_gym',{src:'CeladonCity_Gym',img:'celadoncity_gym',exitX:[5,6,7],exitY:18,entry:[6,17],statues:[[4,16],[8,16]],
+    leader:[6,4,'down'],gt:[7,5,'down',2],e2:[3,11,'right',3],e3:[2,6,'down',2],guide:[9,17],signs,
+    tip:['Welcome to the Pruning Garden!','Thick hedges block every way to Sylvie, and your partner can only cut 2 a visit. Count the hedges before you cut!'],
+    pz:{type:'hedge',hedges,tree:[11,4]}})}}
+{const M=OW_MAPS.a16_gym;if(M){const pairs=[[[18,20],[20,20]],[[28,23],[0,4]],[[8,4],[20,12]],[[28,15],[8,20]],[[0,23],[28,7]],[[20,4],[0,12]],[[8,15],[12,7]],[[16,4],[18,15]],
+    [[0,7],[28,20]],[[8,7],[8,23]],[[12,4],[20,23]],[[16,7],[0,20]],[[20,7],[8,12]],[[28,4],[20,15]],[[0,15],[28,12]]];
+  const warps={};for(const[a,b]of pairs){warps[a.join(',')]=['a16_gym',b[0],b[1],'down'];warps[b.join(',')]=['a16_gym',a[0],a[1],'down']}
+  gym2Def('a16_gym',{src:'SaffronCity_Gym',img:'saffroncity_gym',exitX:[13,14,15],exitY:23,entry:[14,22],statues:[[12,20],[16,20]],warps,
+    leader:[14,11,'down'],gt:[14,4,'down',2],e2:[4,3,'down',2],e3:[24,12,'left',3],guide:[15,20],
+    tip:['These are the Shadow Rooms: nine rooms linked by warp pads.','Each pad throws you into another room. Vesper waits in the middle one. Remember where each pad leads!'],
+    pz:{type:'pads'}})}}
 buildPixelCache().then(npcInit,npcInit).then(titleScreen,titleScreen);
 </script>
 
