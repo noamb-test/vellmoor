@@ -12205,12 +12205,12 @@ function mpLook(){const p=P();return{gender:p.gender||'male',hat:p.hat,hair:p.ha
 function mpEnter(key){mpLeave();if(!MP.user||!state||!state.ow)return;MP.map=key;
   MP.ref=MP.db.ref('presence/'+mpSafe(key));MP.me=MP.ref.child(MP.user.uid);MP.me.onDisconnect().remove();
   const o=state.ow;MP.sent=o.x+','+o.y+','+o.dir;MP.lastSend=performance.now();
-  MP.me.set({n:MP.name,x:o.x,y:o.y,d:o.dir,l:mpLook(),t:MP_TS()}).catch(e=>console.warn('presence',e));
+  MP.me.set({n:MP.name,x:o.x,y:o.y,d:o.dir,l:mpLook(),f:mpFol(),t:MP_TS()}).catch(e=>console.warn('presence',e));
   const put=s=>{if(!MP.user||s.key===MP.user.uid)return;const v=s.val();if(!v||typeof v.x!=='number')return;let g=MP.ghosts[s.key];
     if(!g)g=MP.ghosts[s.key]={id:s.key,px:v.x*16,py:v.y*16,ghost:true};
     if(Math.abs(g.px-v.x*16)+Math.abs(g.py-v.y*16)>48){g.px=v.x*16;g.py=v.y*16}
     const lk=JSON.stringify(v.l||{});if(lk!==g.lk){g.lk=lk;g.img=mpSheet(v.l||{})}
-    Object.assign(g,{n:String(v.n||'?').slice(0,16),x:v.x,y:v.y,dir:v.d||'down',seen:Date.now()})};
+    Object.assign(g,{n:String(v.n||'?').slice(0,16),x:v.x,y:v.y,dir:v.d||'down',seen:Date.now()});mpGhostFol(g,v.f)};
   MP.ref.on('child_added',put);MP.ref.on('child_changed',put);MP.ref.on('child_removed',s=>{delete MP.ghosts[s.key]})}
 function mpLeave(){if(MP.ref){try{MP.ref.off()}catch(e){}if(MP.me){MP.me.onDisconnect().cancel().catch(()=>{});MP.me.remove().catch(()=>{})}}
   MP.ref=null;MP.me=null;MP.map=null;MP.ghosts={};MP.sent=''}
@@ -12218,15 +12218,24 @@ function mpSheet(l){try{if(!window.HG_PLAYER&&typeof owpSheet==='function'&&OWP.
   return owLoad(OWDIR+'player_'+(l.gender==='female'?'f':'m')+'.png')}
 function mpTick(K){if(!MP.user||!state||!state.ow||!MP.db)return;const o=state.ow;
   if(MP.map!==o.map)mpEnter(o.map);if(!MP.me)return;
-  const now=performance.now(),sig=o.x+','+o.y+','+o.dir;
-  if((sig!==MP.sent&&now-MP.lastSend>80)||now-MP.lastSend>20000){MP.sent=sig;MP.lastSend=now;MP.me.update({x:o.x,y:o.y,d:o.dir,t:MP_TS()}).catch(()=>{})}}
+  const f=mpFol(),now=performance.now(),sig=o.x+','+o.y+','+o.dir+'|'+JSON.stringify(f);
+  if((sig!==MP.sent&&now-MP.lastSend>80)||now-MP.lastSend>20000){MP.sent=sig;MP.lastSend=now;MP.me.update({x:o.x,y:o.y,d:o.dir,f:f||null,t:MP_TS()}).catch(()=>{})}}
+/* the Pokémon walking behind each trainer is shared too */
+function mpFol(){const K=OWK,m=typeof OWF!=='undefined'&&OWF&&OWF.mon;if(!K||!K.fol||!m)return null;return{s:+m.sp.slice(1),sh:!!m.shiny,x:K.fol.x,y:K.fol.y,d:K.fol.dir||'down'}}
+function mpGhostFol(g,f){if(!f||typeof f.x!=='number'){g.f=null;return}const k=f.s+(f.sh?'s':'');
+  if(!g.f||g.f.k!==k){const has=typeof OW_FOL!=='undefined'&&OW_FOL.has(f.s);g.f={k,px:f.x*16,py:f.y*16,mon:has,img:has?owLoad(OWDIR+'pokemon/'+(f.sh?'shiny':'normal')+'/'+f.s+'.png'):null,alt:has?null:owLoad((f.sh?'sprites/shiny/':'sprites/front/')+f.s+'.png')}}
+  if(Math.abs(g.f.px-f.x*16)+Math.abs(g.f.py-f.y*16)>48){g.f.px=f.x*16;g.f.py=f.y*16}Object.assign(g.f,{x:f.x,y:f.y,dir:f.d})}
+{const _nd=owNpcDraw;owNpcDraw=function(K,nn,moving,cam,now){if(!nn.mpAlt)return _nd.apply(this,arguments);const a=nn.mpAlt;if(!owOk(a))return;const c=K.ctx,s=a.naturalWidth/2,bob=Math.floor(now/260)%2,flip=nn.dir==='right';
+  c.save();if(flip){c.translate(Math.round(nn.px-cam.x+8)*2,0);c.scale(-1,1)}c.drawImage(a,0,0,a.naturalWidth,a.naturalHeight,Math.round(nn.px-cam.x-(s-16)/2),Math.round(nn.py-cam.y-(s-16)-2-bob),s,s);c.restore()}}
 function mpGhosts(K,dt){const out=[],sp=dt*16/190;
   for(const g of Object.values(MP.ghosts)){if(Date.now()-g.seen>90000&&g.seen)continue;
     const tx=g.x*16,ty=g.y*16;let mv=false;
     if(g.px!==tx){const d=Math.sign(tx-g.px)*Math.min(sp,Math.abs(tx-g.px));g.px+=d;mv=true}
     else if(g.py!==ty){const d=Math.sign(ty-g.py)*Math.min(sp,Math.abs(ty-g.py));g.py+=d;mv=true}
     g.walk=mv?(g.walk||0)+dt:0;
-    out.push({ghost:true,id:'mp_'+g.id,px:g.px,py:g.py,dir:g.dir,img:g.img,tx:mv?1:undefined,t:mv?(Math.floor(g.walk/130)%2?0:999):999,n:g.n})}
+    out.push({ghost:true,id:'mp_'+g.id,px:g.px,py:g.py,dir:g.dir,img:g.img,tx:mv?1:undefined,t:mv?(Math.floor(g.walk/130)%2?0:999):999,n:g.n});
+    const f=g.f;if(f){const fx=f.x*16,fy=f.y*16;if(f.px!==fx)f.px+=Math.sign(fx-f.px)*Math.min(sp,Math.abs(fx-f.px));else if(f.py!==fy)f.py+=Math.sign(fy-f.py)*Math.min(sp,Math.abs(fy-f.py));
+      if(!(Math.round(f.px)===Math.round(g.px)&&Math.round(f.py)===Math.round(g.py)))out.push({ghost:true,id:'mpf_'+g.id,px:f.px,py:f.py-.5,dir:f.dir,mon:f.mon,img:f.img,mpAlt:f.alt})}}
   return out}
 {const _od=owDraw;let last=0;owDraw=function(K,now){const dt=last?Math.min(50,now-last):16;last=now;
   try{mpTick(K)}catch(e){}
@@ -12236,9 +12245,9 @@ function mpGhosts(K,dt){const out=[],sp=dt*16/190;
   const c=K.ctx,M=K.map,ax=(w,v,p)=>w<=v?Math.round((w-v)/2):Math.round(Math.max(0,Math.min(w-v,p)));
   const cam={x:ax(M.w*16,256,K.px+8-128),y:ax(M.h*16,192,K.py+8-96)};
   c.save();c.font='bold 7px "Vellmoor DS","Vellmoor FRLG",monospace';c.textAlign='center';c.textBaseline='middle';
-  for(const g of gs){const x=Math.round(g.px-cam.x+8),y=Math.round(g.py-cam.y-21);if(x<-40||x>296||y<-10||y>200)continue;
+  for(const g of gs){if(!g.n)continue;const x=Math.round(g.px-cam.x+8),y=Math.round(g.py-cam.y-21);if(x<-40||x>296||y<-10||y>200)continue;
     const w=Math.ceil(c.measureText(g.n).width)+6;c.fillStyle='rgba(16,20,32,.72)';c.fillRect(x-w/2,y-5,w,10);c.fillStyle='#fff';c.fillText(g.n,x,y+.5)}
-  const here=gs.length;c.textAlign='left';const s=`${here} other trainer${here===1?'':'s'} here`;const w=Math.ceil(c.measureText(s).width)+14;
+  const here=gs.filter(g=>g.n).length;c.textAlign='left';const s=`${here} other trainer${here===1?'':'s'} here`;const w=Math.ceil(c.measureText(s).width)+14;
   c.fillStyle='rgba(16,20,32,.6)';c.fillRect(4,4,w,11);c.fillStyle='#7ef0a0';c.fillRect(7,8,3,3);c.fillText(s,13,10);c.restore()}}
 /* other trainers are only drawn: they never block a step, take a talk, or start a battle */
 mpInit();
