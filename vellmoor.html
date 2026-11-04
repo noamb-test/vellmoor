@@ -12254,7 +12254,7 @@ function mpHud(K,here){const c=K.ctx,all=mpOnlineOthers().length;c.save();c.font
   c.fillStyle='rgba(16,20,32,.6)';c.fillRect(x,4,w,11);c.fillStyle=all?'#7ef0a0':'#9aa4b8';c.fillRect(x+3,8,3,3);c.fillText(s,x+9,10);c.restore()}
 /* ---- who's online anywhere in Vellmoor: online/<uid> = {n, a:area name, t} ---- */
 MP.online={};
-const mpOnlineOthers=()=>Object.entries(MP.online).filter(([u,v])=>MP.user&&u!==MP.user.uid&&v&&v.n).map(([u,v])=>v);
+const mpOnlineOthers=()=>Object.entries(MP.online).filter(([u,v])=>MP.user&&u!==MP.user.uid&&v&&v.n&&!(v.t&&Date.now()-v.t>150000)).map(([u,v])=>v);
 function mpWhere(){if(!state||typeof AREAS==='undefined')return'';if(state.ow&&OWK&&OWK.map&&OWK.map.key!==OW_AREA[state.loc]){const a=AREAS[state.loc];return a?a.n:''}const a=AREAS[state.loc];return a?a.n:''}
 function mpOnlineStart(){mpOnlineStop();if(!MP.user)return;MP.onRef=MP.db.ref('online');MP.onMe=MP.onRef.child(MP.user.uid);MP.onMe.onDisconnect().remove();
   MP.onWhere=document.querySelector('.title')?'':mpWhere();MP.onMe.set({n:MP.name,a:MP.onWhere,t:MP_TS()}).catch(e=>console.warn('online',e));
@@ -12262,9 +12262,9 @@ function mpOnlineStart(){mpOnlineStop();if(!MP.user)return;MP.onRef=MP.db.ref('o
   const put=s=>{const v=s.val(),fresh=!MP.online[s.key];MP.online[s.key]=v;if(fresh&&MP.onReady&&v&&v.n&&s.key!==MP.user.uid)toast(`<b>${mpEsc(v.n)} is online</b><span>${v.a?'In '+mpEsc(v.a):'On the title screen'}</span>`);mpBoxOnline()};
   MP.onRef.on('child_added',put);MP.onRef.on('child_changed',s=>{MP.online[s.key]=s.val();mpBoxOnline()});
   MP.onRef.on('child_removed',s=>{const v=MP.online[s.key];delete MP.online[s.key];if(v&&v.n&&MP.user&&s.key!==MP.user.uid&&MP.onReady)toast(`<b>${mpEsc(v.n)} went offline</b>`);mpBoxOnline()});
-  clearInterval(MP.onIv);MP.onIv=setInterval(mpOnlineBeat,5000)}
-function mpOnlineBeat(){if(!MP.onMe)return;const w=document.querySelector('.title')?'':mpWhere();const now=Date.now();
-  if(w!==MP.onWhere||now-(MP.onBeat||0)>60000){MP.onWhere=w;MP.onBeat=now;MP.onMe.update({n:MP.name,a:w,t:MP_TS()}).catch(()=>{})}}
+  clearInterval(MP.onIv);MP.onIv=setInterval(mpOnlineBeat,1000)}
+function mpOnlineBeat(){if(!MP.onMe)return;const ti=!!document.querySelector('.title'),w=ti?'':mpWhere(),m=ti?'':(state&&state.ow&&state.ow.map)||'',b=!!(typeof B!=='undefined'&&B),now=Date.now();
+  const sig=w+'|'+m+'|'+b;if(sig!==MP.onSig||now-(MP.onBeat||0)>30000){MP.onSig=sig;MP.onWhere=w;MP.onBeat=now;MP.onMe.update({n:MP.name,a:w,m,b,t:MP_TS()}).catch(()=>{})}}
 function mpOnlineStop(){clearInterval(MP.onIv);MP.onIv=null;if(MP.onRef){try{MP.onRef.off()}catch(e){}}if(MP.onMe){MP.onMe.onDisconnect().cancel().catch(()=>{});MP.onMe.remove().catch(()=>{})}MP.onRef=null;MP.onMe=null;MP.online={}}
 function mpBoxOnline(){const el=document.getElementById('mpWho');if(!el)return;const L=mpOnlineOthers();
   el.innerHTML=L.length?`<b>Online now:</b> ${L.map(v=>`${mpEsc(v.n)}${v.a?` <span class="muted">(${mpEsc(v.a)})</span>`:''}`).join(', ')}`:'<span class="muted">No other trainers online right now.</span>'}
@@ -12572,6 +12572,24 @@ function gymHedge(M,h){const s=gym2S(M);s.cut=s.cut||new Set();const k=h[0]+','+
     leader:[14,11,'down'],gt:[14,4,'down',2],e2:[4,3,'down',2],e3:[24,12,'left',3],guide:[15,20],
     tip:['These are the Shadow Rooms: nine rooms linked by warp pads.','Each pad throws you into another room. Vesper waits in the middle one. Remember where each pad leads!'],
     pz:{type:'pads'}})}}
+
+/* ---- START MENU → ONLINE: everyone signed in and where they are, updating live ---- */
+{const _mi=hgMenuItems;hgMenuItems=function(){const it=_mi.apply(this,arguments);if(MP.ok){const i=it.findIndex(x=>x[0]==='EXIT');const e=['ONLINE',5,()=>mpUserList()];if(i>=0)it[i]=e;else it.push(e)}return it}}
+{const _w=owWarp;owWarp=function(){const r=_w.apply(this,arguments);setTimeout(()=>{try{mpOnlineBeat()}catch(e){}},300);return r}}
+function mpUserList(){if(!MP.user){openModal(`<header><div><p class="label">Online</p><h2>Trainers online</h2></div><button class="btn small" id="mclose">Close</button></header>
+  <p class="muted">Log in from the title screen to see who’s playing and where they are.</p>`,m=>{m.querySelector('#mclose').onclick=closeModal});return}
+  const here=state&&state.ow&&state.ow.map;
+  const draw=()=>{const el=document.getElementById('mpList');if(!el){clearInterval(iv);return}const L=mpOnlineOthers().sort((a,b)=>(b.m===here)-(a.m===here)||String(a.n).localeCompare(b.n));
+    document.getElementById('mpCount').textContent=L.length?`${L.length} other trainer${L.length===1?'':'s'} online`:'No other trainers online right now';
+    el.innerHTML=`<li class="mpMe"><span class="mpDot"></span><b>${mpEsc(MP.name)}</b> <span class="muted">(you)</span><span class="mpAt">${mpEsc(mpWhere()||'')}</span></li>`+
+      L.map(v=>`<li><span class="mpDot"></span><b>${mpEsc(v.n)}</b>${v.m&&v.m===here?' <span class="mpTag">on your map</span>':''}${v.b?' <span class="mpTag mpBat">in a battle</span>':''}<span class="mpAt">${v.a?mpEsc(v.a):'<i>On the title screen</i>'}</span></li>`).join('')};
+  openModal(`<header><div><p class="label">Online</p><h2>Trainers online</h2></div><button class="btn small" id="mclose">Close</button></header>
+    <p class="muted" id="mpCount"></p><ul class="mpList" id="mpList"></ul><p class="muted mpFoot">Walk up to someone on your map and press A to battle them.</p>`,m=>{m.querySelector('#mclose').onclick=closeModal});
+  draw();const iv=setInterval(draw,1000)}
+{const st=document.createElement('style');st.textContent=`.mpList{list-style:none;margin:6px 0;padding:0;display:grid;gap:6px}
+.mpList li{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:9px 11px;border:1px solid var(--line,#2a3140);border-radius:10px;background:rgba(255,255,255,.03)}
+.mpList li.mpMe{opacity:.8}.mpAt{margin-left:auto;font-size:14px;color:var(--muted,#aab)}
+.mpTag{font-size:12px;padding:1px 7px;border-radius:99px;background:#1f6a42;color:#dcf6e6}.mpBat{background:#7a2a2a;color:#ffe0e0}.mpFoot{font-size:13px;margin-top:8px}`;document.head.appendChild(st)}
 buildPixelCache().then(npcInit,npcInit).then(titleScreen,titleScreen);
 </script>
 
