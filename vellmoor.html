@@ -12240,15 +12240,38 @@ function mpGhosts(K,dt){const out=[],sp=dt*16/190;
 {const _od=owDraw;let last=0;owDraw=function(K,now){const dt=last?Math.min(50,now-last):16;last=now;
   try{mpTick(K)}catch(e){}
   const gs=MP.user?mpGhosts(K,dt):[];
-  if(!gs.length)return _od(K,now);
+  if(!gs.length){_od(K,now);if(MP.user)mpHud(K,0);return}
   const keep=K.npcs;K.npcs=keep.concat(gs);try{_od(K,now)}finally{K.npcs=keep}
   const c=K.ctx,M=K.map,ax=(w,v,p)=>w<=v?Math.round((w-v)/2):Math.round(Math.max(0,Math.min(w-v,p)));
   const cam={x:ax(M.w*16,256,K.px+8-128),y:ax(M.h*16,192,K.py+8-96)};
   c.save();c.font='bold 7px "Vellmoor DS","Vellmoor FRLG",monospace';c.textAlign='center';c.textBaseline='middle';
   for(const g of gs){if(!g.n)continue;const x=Math.round(g.px-cam.x+8),y=Math.round(g.py-cam.y-21);if(x<-40||x>296||y<-10||y>200)continue;
     const w=Math.ceil(c.measureText(g.n).width)+6;c.fillStyle='rgba(16,20,32,.72)';c.fillRect(x-w/2,y-5,w,10);c.fillStyle='#fff';c.fillText(g.n,x,y+.5)}
-  const here=gs.filter(g=>g.n).length;c.textAlign='left';const s=`${here} other trainer${here===1?'':'s'} here`;const w=Math.ceil(c.measureText(s).width)+14;
-  c.fillStyle='rgba(16,20,32,.6)';c.fillRect(4,4,w,11);c.fillStyle='#7ef0a0';c.fillRect(7,8,3,3);c.fillText(s,13,10);c.restore()}}
+  c.restore();mpHud(K,gs.filter(g=>g.n).length)}}
+/* top-right badge: everyone online, and how many are on this map */
+function mpHud(K,here){const c=K.ctx,all=mpOnlineOthers().length;c.save();c.font='bold 7px "Vellmoor DS","Vellmoor FRLG",monospace';c.textBaseline='middle';c.textAlign='left';
+  const s=all?`${all} online${here?` · ${here} here`:''}`:'Only you online';const w=Math.ceil(c.measureText(s).width)+14,x=252-w;
+  c.fillStyle='rgba(16,20,32,.6)';c.fillRect(x,4,w,11);c.fillStyle=all?'#7ef0a0':'#9aa4b8';c.fillRect(x+3,8,3,3);c.fillText(s,x+9,10);c.restore()}
+/* ---- who's online anywhere in Vellmoor: online/<uid> = {n, a:area name, t} ---- */
+MP.online={};
+const mpOnlineOthers=()=>Object.entries(MP.online).filter(([u,v])=>MP.user&&u!==MP.user.uid&&v&&v.n).map(([u,v])=>v);
+function mpWhere(){if(!state||typeof AREAS==='undefined')return'';if(state.ow&&OWK&&OWK.map&&OWK.map.key!==OW_AREA[state.loc]){const a=AREAS[state.loc];return a?a.n:''}const a=AREAS[state.loc];return a?a.n:''}
+function mpOnlineStart(){mpOnlineStop();if(!MP.user)return;MP.onRef=MP.db.ref('online');MP.onMe=MP.onRef.child(MP.user.uid);MP.onMe.onDisconnect().remove();
+  MP.onWhere=document.querySelector('.title')?'':mpWhere();MP.onMe.set({n:MP.name,a:MP.onWhere,t:MP_TS()}).catch(e=>console.warn('online',e));
+  MP.onReady=false;setTimeout(()=>{MP.onReady=true},3000);
+  const put=s=>{const v=s.val(),fresh=!MP.online[s.key];MP.online[s.key]=v;if(fresh&&MP.onReady&&v&&v.n&&s.key!==MP.user.uid)toast(`<b>${mpEsc(v.n)} is online</b><span>${v.a?'In '+mpEsc(v.a):'On the title screen'}</span>`);mpBoxOnline()};
+  MP.onRef.on('child_added',put);MP.onRef.on('child_changed',s=>{MP.online[s.key]=s.val();mpBoxOnline()});
+  MP.onRef.on('child_removed',s=>{const v=MP.online[s.key];delete MP.online[s.key];if(v&&v.n&&MP.user&&s.key!==MP.user.uid&&MP.onReady)toast(`<b>${mpEsc(v.n)} went offline</b>`);mpBoxOnline()});
+  clearInterval(MP.onIv);MP.onIv=setInterval(mpOnlineBeat,5000)}
+function mpOnlineBeat(){if(!MP.onMe)return;const w=document.querySelector('.title')?'':mpWhere();const now=Date.now();
+  if(w!==MP.onWhere||now-(MP.onBeat||0)>60000){MP.onWhere=w;MP.onBeat=now;MP.onMe.update({n:MP.name,a:w,t:MP_TS()}).catch(()=>{})}}
+function mpOnlineStop(){clearInterval(MP.onIv);MP.onIv=null;if(MP.onRef){try{MP.onRef.off()}catch(e){}}if(MP.onMe){MP.onMe.onDisconnect().cancel().catch(()=>{});MP.onMe.remove().catch(()=>{})}MP.onRef=null;MP.onMe=null;MP.online={}}
+function mpBoxOnline(){const el=document.getElementById('mpWho');if(!el)return;const L=mpOnlineOthers();
+  el.innerHTML=L.length?`<b>Online now:</b> ${L.map(v=>`${mpEsc(v.n)}${v.a?` <span class="muted">(${mpEsc(v.a)})</span>`:''}`).join(', ')}`:'<span class="muted">No other trainers online right now.</span>'}
+{const _ac=mpAuthChanged;mpAuthChanged=async function(u){if(!u)mpOnlineStop();const r=await _ac.apply(this,arguments);if(u&&MP.user)mpOnlineStart();return r}}
+{const _lo=mpLogout;mpLogout=function(){mpOnlineStop();return _lo.apply(this,arguments)}}
+{const _bx=mpBox;mpBox=function(){const r=_bx.apply(this,arguments);const b=document.getElementById('mpBox');if(b&&MP.user&&!document.getElementById('mpWho')){const d=document.createElement('p');d.id='mpWho';d.className='mpWho';b.appendChild(d);mpBoxOnline()}return r}}
+{const st=document.createElement('style');st.textContent='.mpWho{margin:8px 0 0;font-size:14px}';document.head.appendChild(st)}
 /* other trainers are only drawn: they never block a step, take a talk, or start a battle */
 mpInit();
 /* ============ ONLINE BATTLES: challenge another trainer you meet in the world ============

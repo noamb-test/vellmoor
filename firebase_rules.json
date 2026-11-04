@@ -4,7 +4,9 @@
       "$uid": {
         ".read": true,
         ".write": "auth != null && auth.uid === $uid",
-        "name": { ".validate": "newData.isString() && newData.val().length >= 3 && newData.val().length <= 16" }
+        "name": {
+          ".validate": "newData.isString() && newData.val().length >= 3 && newData.val().length <= 16"
+        }
       }
     },
     "presence": {
@@ -34,6 +36,12 @@
       "$bid": {
         ".read": "auth != null && (data.child('a').val() === auth.uid || data.child('to').val() === auth.uid)",
         ".write": "auth != null && ((!data.exists() && newData.child('a').val() === auth.uid) || data.child('a').val() === auth.uid || data.child('to').val() === auth.uid)"
+      }
+    },
+    "online": {
+      ".read": "auth != null",
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid"
       }
     }
   }
