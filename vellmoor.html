@@ -12679,6 +12679,77 @@ function lhChoose(){const s=LH();if(s.picked)return;
 {const st=document.createElement('style');st.textContent=`.lhPick{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
 .lhMon{all:unset;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px;border:1px solid var(--line,#2a3140);border-radius:10px;background:rgba(255,255,255,.03)}
 .lhMon:hover,.lhMon:focus{background:rgba(120,180,255,.12);border-color:#6fa8ff}.lhMon :is(svg,img){width:80px!important;height:80px!important;max-width:none!important;image-rendering:pixelated}.lhMon>*:not(b){display:flex;justify-content:center}.lhMon b{font-size:14px}`;document.head.appendChild(st)}
+/* ============ SOULSILVER WEATHER AND DOORS ============
+   Weather: the rain drops, splashes, snowflakes and sandstorm textures are SoulSilver's own field-weather graphics
+   (decoded from pret/pokeheartgold files/data/weather_sys.narc) in sprites/ui/hgss/weather/. They fall over the
+   overworld whenever the area's weather is active, and over the battle scene whenever battle weather is up.
+   Doors: walking into a building, the door slides open, you step in and the screen fades; coming back out you
+   appear in the doorway, step down and the door slides shut behind you. */
+const WXD='sprites/ui/hgss/weather/';const WXI={};for(const n of['rain','splash','snow','sand','dust','sandbg'])WXI[n]=owLoad(WXD+n+'.png');
+function wxSys(kind,W,H){const S={kind,W,H,p:[],sp:[],t:0};const N={rain:95,hail:46,sand:60,sun:0}[kind]||0;
+  for(let i=0;i<N;i++)S.p.push(wxNew(S,true));return S}
+function wxNew(S,any){const W=S.W,H=S.H,r=Math.random;
+  if(S.kind==='rain')return{x:r()*(W+60),y:any?r()*H:-10-r()*40,v:3.6+r()*1.6,t:(r()*6)|0,land:H*(.25+r()*.75)};
+  if(S.kind==='hail')return{x:r()*W,y:any?r()*H:-8,v:.45+r()*.55,t:(r()*4)|0,ph:r()*6.28,sw:.4+r()*.8};
+  if(S.kind==='sand')return{x:any?r()*W:-10,y:r()*H,v:3+r()*3,t:(r()*4)|0,img:r()<.5?'sand':'dust'};return{}}
+function wxStep(S,c,dt){const k=dt/16.7,r=Math.random;S.t+=dt;
+  if(S.kind==='rain'){c.fillStyle='rgba(30,40,70,.18)';c.fillRect(0,0,S.W,S.H);
+    for(const d of S.p){d.y+=d.v*2.2*k;d.x-=d.v*.55*k;if(owOk(WXI.rain))c.drawImage(WXI.rain,d.t*8,0,8,8,Math.round(d.x),Math.round(d.y),8,8);
+      if(d.y>=d.land){if(r()<.35)S.sp.push({x:d.x,y:d.y+4,f:0});Object.assign(d,wxNew(S,false))}}
+    for(const s of S.sp){s.f+=dt/60;const f=Math.floor(s.f);if(f<3&&owOk(WXI.splash)){c.globalAlpha=.8;c.drawImage(WXI.splash,f*16,0,16,8,Math.round(s.x-8),Math.round(s.y-6),16,8);c.globalAlpha=1}}
+    S.sp=S.sp.filter(s=>s.f<3)}
+  if(S.kind==='hail'){c.fillStyle='rgba(220,235,255,.12)';c.fillRect(0,0,S.W,S.H);
+    for(const d of S.p){d.y+=d.v*k;d.ph+=.03*k;const x=d.x+Math.sin(d.ph)*6*d.sw;if(owOk(WXI.snow))c.drawImage(WXI.snow,d.t*8,0,8,8,Math.round(x),Math.round(d.y),8,8);if(d.y>S.H+4)Object.assign(d,wxNew(S,false))}}
+  if(S.kind==='sand'){c.fillStyle='rgba(200,160,100,.22)';c.fillRect(0,0,S.W,S.H);
+    if(owOk(WXI.sandbg)){c.save();c.globalAlpha=.55;const ox=-((S.t*.12)%128),oy=-((S.t*.03)%128);for(let x=ox;x<S.W;x+=128)for(let y=oy;y<S.H;y+=128)c.drawImage(WXI.sandbg,Math.round(x),Math.round(y));c.restore()}
+    for(const d of S.p){d.x+=d.v*k;d.y+=.6*k;const im=WXI[d.img];if(owOk(im))c.drawImage(im,d.t*8,0,8,8,Math.round(d.x),Math.round(d.y),8,8);if(d.x>S.W+8||d.y>S.H+8)Object.assign(d,wxNew(S,false))}}
+  if(S.kind==='sun'){const g=c.createRadialGradient(S.W*.85,0,4,S.W*.85,0,S.W*.8);g.addColorStop(0,'rgba(255,246,190,.45)');g.addColorStop(.5,'rgba(255,214,120,.12)');g.addColorStop(1,'rgba(255,200,100,0)');c.fillStyle=g;c.fillRect(0,0,S.W,S.H)}}
+const owOutdoor=K=>K&&K.map&&state&&OW_AREA[state.loc]===K.map.key;
+/* ---- doors ---- */
+const DOOR={open:170,walk:230,fade:200};let OWFADE=null;
+{const _d=owDoor;owDoor=function(K,name){const f=K.map.doorAct[name],at=(K.map.doors||{})[name];if(!f||!at||K.door)return _d.apply(this,arguments);
+  K.held=[];K.busy=true;K.door={x:at[0],y:at[1],mode:'in',t0:performance.now(),f,sy:K.py,sx:K.px};K.dir='up'}}
+{const _w=owWarp;owWarp=function(map,x,y,dir){const from=OWK&&OWK.map&&OWK.map.key;const r=_w.apply(this,arguments);
+  OWFADE={t0:performance.now(),d:DOOR.fade};
+  const M=OW_MAPS[map];if(M&&M.doors&&map!==from&&(dir==='down'||!dir)){const dd=Object.values(M.doors).find(v=>v[0]===x&&v[1]===y-1);
+    if(dd)setTimeout(()=>{const K=OWK;if(!K||K.map.key!==map)return;K.busy=true;K.held=[];K.dir='down';K.door={x:dd[0],y:dd[1],mode:'out',t0:performance.now()};K.py=dd[1]*16;K.px=dd[0]*16},0)}
+  return r}}
+function doorOpenAmt(K,now){const D=K.door;if(!D)return 0;const t=now-D.t0;
+  if(D.mode==='in')return Math.min(1,t/DOOR.open);
+  const a=DOOR.fade,b=a+DOOR.walk;return t<b?1:Math.max(0,1-(t-b)/DOOR.open)}
+function doorTick(K,now){const D=K.door;if(!D)return;const t=now-D.t0;
+  if(D.mode==='in'){const w=Math.max(0,Math.min(1,(t-DOOR.open)/DOOR.walk));K.py=D.sy-16*w;K.step=(Math.floor(t/120))%2;
+    if(t>=DOOR.open+DOOR.walk+DOOR.fade){K.door=null;K.busy=false;K.py=D.sy;const f=D.f;f()}}
+  else{const a=DOOR.fade,w=Math.max(0,Math.min(1,(t-a)/DOOR.walk));K.py=(D.y+w)*16;
+    if(t>=a+DOOR.walk+DOOR.open){K.door=null;K.busy=false;K.py=(D.y+1)*16;state.ow.y=D.y+1}}}
+{const _u=owUnder;owUnder=function(K,cam,now){_u.apply(this,arguments);const D=K.door;if(!D||!owOk(K.lower))return;const o=doorOpenAmt(K,now);if(o<=0)return;
+  const c=K.ctx,px=D.x*16-cam.x,py=D.y*16-cam.y,gap=Math.round(8*o);
+  c.fillStyle='#120c0c';c.fillRect(px+1,py,14,16);
+  // the two halves of the door slide apart
+  c.drawImage(K.lower,D.x*16,D.y*16,8,16,px-gap,py,8,16);c.drawImage(K.lower,D.x*16+8,D.y*16,8,16,px+8+gap,py,8,16);
+  // tidy the edges: cover the slid-out parts with the wall beside the door
+  if(gap){c.drawImage(K.lower,(D.x-1)*16+16-gap,D.y*16,gap,16,px-gap,py,gap,16);c.drawImage(K.lower,(D.x+1)*16,D.y*16,gap,16,px+16,py,gap,16)}}}
+/* ---- draw weather and fades on top of the overworld ---- */
+let OWWX=null;
+{const _od=owDraw;owDraw=function(K,now){doorTick(K,now);const r=_od.apply(this,arguments);const c=K.ctx;
+  const w=owOutdoor(K)?areaWeather():null;
+  if(w&&WX_ON()){if(!OWWX||OWWX.kind!==w)OWWX=wxSys(w,256,192);const dt=Math.min(50,now-(OWWX.last||now));OWWX.last=now;c.save();c.setTransform(K.ctx.getTransform());wxStep(OWWX,c,dt);c.restore()}else OWWX=null;
+  const D=K.door;let a=0;if(D&&D.mode==='in'){const t=now-D.t0-DOOR.open-DOOR.walk;if(t>0)a=Math.min(1,t/DOOR.fade)}
+  if(OWFADE){const t=now-OWFADE.t0;if(t<OWFADE.d)a=Math.max(a,1-t/OWFADE.d);else OWFADE=null}
+  if(a>0){c.save();c.fillStyle=`rgba(0,0,0,${a})`;c.fillRect(-64,-64,512,384);c.restore()}
+  return r}}
+const WX_ON=()=>!(state&&state.noWeatherFx);
+/* ---- battle weather uses the same SoulSilver sprites ---- */
+let BWX=null;
+function bwxLoop(){const a=document.querySelector('.arena');const w=typeof B!=='undefined'&&B&&B.weather;
+  if(!a||!w||!WX_ON()){const cv=document.getElementById('bwx');if(cv)cv.remove();BWX=null;return}
+  let cv=document.getElementById('bwx');if(!cv||cv.parentNode!==a){cv=document.createElement('canvas');cv.id='bwx';cv.width=256;cv.height=144;a.appendChild(cv)}
+  if(!BWX||BWX.kind!==w)BWX=wxSys(w,256,144);const now=performance.now(),dt=Math.min(50,now-(BWX.last||now));BWX.last=now;
+  const c=cv.getContext('2d');c.imageSmoothingEnabled=false;c.clearRect(0,0,256,144);wxStep(BWX,c,dt);requestAnimationFrame(bwxLoop)}
+{const _wp=wxPaint;wxPaint=function(){const r=_wp.apply(this,arguments);if(!BWX)requestAnimationFrame(bwxLoop);return r}}
+{const _bt=battle;battle=function(){const r=_bt.apply(this,arguments);setTimeout(()=>{if(B&&B.weather&&!BWX)requestAnimationFrame(bwxLoop)},200);return r}}
+{const st=document.createElement('style');st.textContent=`#bwx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:5;image-rendering:pixelated}
+.arena.wx-rain::after,.arena.wx-sand::after,.arena.wx-hail::after,.arena.wx-sun::after{display:none!important}`;document.head.appendChild(st)}
 buildPixelCache().then(npcInit,npcInit).then(titleScreen,titleScreen);
 </script>
 
