@@ -12769,6 +12769,46 @@ function bwxLoop(){const a=document.querySelector('.arena');const w=typeof B!=='
 {const _bt=battle;battle=function(){const r=_bt.apply(this,arguments);setTimeout(()=>{if(B&&B.weather&&!BWX)requestAnimationFrame(bwxLoop)},200);return r}}
 {const st=document.createElement('style');st.textContent=`#bwx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:5;image-rendering:pixelated}
 .arena.wx-rain::after,.arena.wx-sand::after,.arena.wx-hail::after,.arena.wx-sun::after{display:none!important}`;document.head.appendChild(st)}
+/* ============ CINDERHOLD DOJO: beat the students and the master, then choose a Tyrogue evolution ============
+   The building next to the Cinderhold gym is a fighting dojo. Four Black Belts train in the hall; beat them all,
+   then the Dojo Master. His three prize Pokémon (Hitmonlee, Hitmonchan and Hitmontop) stand behind him, and he
+   lets you take one of them with you. */
+const DOJO=()=>state.dojo||(state.dojo={beat:false,pick:null});
+const DOJO_MONS=[['n106',6],['n107',7],['n237',8]];
+QUESTS.push({id:'dojo1',giver:6,title:'The Cinderhold Dojo',text:'Beat the four Black Belts training in the Cinderhold dojo, then defeat the Dojo Master.',
+  prog:()=>['a6_dojo_b1','a6_dojo_b2','a6_dojo_b3','a6_dojo_b4'].filter(owBeat).length+(DOJO().beat?1:0),goal:5,reward:{gold:300,note:'Choose Hitmonlee, Hitmonchan or Hitmontop'}});
+{const M=OW_MAPS.a6_saffroncity_dojo;if(M){const g=GYMS[owGymIdx(6)],key=M.key;
+  const belt=(id,name,x,y,dir,sight,lv,intro,after)=>owNpcFn({id,cls:'Black Belt',name,sheet:'black_belt',x,y,dir,sight,team:autoTeam('Fighting',2,g.ace-4+lv,'BlackBelt'+name,g.alt),intro,after},M,key);
+  M.npcs=[
+    belt('a6_dojo_b1','Koji',3,11,'right',3,0,'Hiyah! You want to train here? Prove it!','Your spirit is strong.'),
+    belt('a6_dojo_b2','Mina',11,10,'left',3,1,'The dojo does not welcome the weak!','Hmph. Go on, then.'),
+    belt('a6_dojo_b3','Ren',3,7,'right',3,2,'Only the master’s best students stand this close!','You fight like a true martial artist.'),
+    belt('a6_dojo_b4','Taro',11,6,'left',3,3,'Last stop before the master. Show me everything!','The master will be pleased to meet you.'),
+    {id:'a6_dojo_master',sheet:'expert_m',x:7,y:4,dir:'down',say:()=>{const d=DOJO();
+      if(d.pick)return['Train hard with your partner. Come back any time to spar.'];
+      if(d.beat)return['You have earned it. Choose one of my prize Pokémon.'];
+      const left=['a6_dojo_b1','a6_dojo_b2','a6_dojo_b3','a6_dojo_b4'].filter(id=>!owBeat(id)).length;
+      try{if(!state.quests.active.includes('dojo1')&&!state.quests.done.includes('dojo1'))acceptQuest('dojo1')}catch(e){}
+      if(left)return['I am Master Kiai. Behind me stand my three finest Pokémon.',`Defeat all of my students first. ${left} of them still stand.`];
+      return['So, you beat all of my students.','Now face me! If you win, you may take one of the Pokémon behind me.']},
+     then:()=>{const d=DOJO();if(d.pick)return;if(d.beat)return setTimeout(dojoChoose,30);
+       if(['a6_dojo_b1','a6_dojo_b2','a6_dojo_b3','a6_dojo_b4'].some(id=>!owBeat(id)))return;
+       owStop();const foes=[['n066',g.ace-2],['n237',g.ace-1],['n068',g.ace]].map(([sp,l])=>makeMon(RZ(sp,'t'),l));
+       battle({kind:'trainer',indoor:true,trainer:{n:'Master Kiai',title:'Dojo Master',line:'Show me the strength of your spirit!'},foes,gold:foes.reduce((s,m)=>s+m.lvl*12,0),
+         onWin:()=>{DOJO().beat=true;try{questTick()}catch(e){}save();return'Magnificent! Come and choose your reward.'}})}},
+    ...DOJO_MONS.map(([id,x])=>({id:'a6_dojo_'+id,mon:+id.slice(1),x,y:3,dir:'down',show:()=>DOJO().pick!==id,
+      say:()=>{const d=DOJO();if(!d.beat)return[`${SP[id].n} is watching you closely. It belongs to the Dojo Master.`];if(d.pick)return[`${SP[id].n} is training on its own.`];return[`${SP[id].n} looks ready to fight alongside you.`]},
+      then:()=>{const d=DOJO();if(d.beat&&!d.pick)setTimeout(()=>dojoConfirm(id),30)}}))];
+  M.signs=M.signs||{};
+}}
+function dojoChoose(){if(DOJO().pick)return;const ids=DOJO_MONS.map(m=>m[0]);
+  owSay(['Master Kiai: Which one will you take?'],()=>owChoose([...ids.map(id=>SP[id].n),'Let me think'],c=>{if(c<ids.length)dojoConfirm(ids[c])}))}
+function dojoConfirm(id){const d=DOJO();if(d.pick)return;const blurb={n106:'Hitmonlee, the kicking master',n107:'Hitmonchan, the punching master',n237:'Hitmontop, the spinning master'}[id];
+  owSay([`${blurb}. Take ${SP[id].n} with you?`],()=>owChoose([`Yes, take ${SP[id].n}`,'Let me look again'],k=>{if(k!==0)return dojoChoose();
+    d.pick=id;const mon=makeMon(id,20);state.dex.seen[mon.sp]=1;state.dex.caught[mon.sp]=1;try{recruitCount(mon)}catch(e){}
+    const toPC=state.party.length>=6;if(toPC)(state.stable=state.stable||[]).push(mon);else state.party.push(mon);save();
+    if(OWK)OWK.npcs=OWK.npcs.filter(n=>n.id!=='a6_dojo_'+id);
+    owSay([`${P().name} received ${SP[id].n}!`,toPC?`Your party is full, so ${SP[id].n} was sent to your PC.`:`${SP[id].n} joined your party!`,'Master Kiai: Train together every day. That is the way of the dojo.'])}))}
 buildPixelCache().then(npcInit,npcInit).then(titleScreen,titleScreen);
 </script>
 
