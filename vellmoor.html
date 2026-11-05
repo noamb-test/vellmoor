@@ -9096,7 +9096,7 @@ function battle(cfg){
   if(B.multi){(async()=>{await battleIntro();introMulti()})();return}
   (async()=>{
     await battleIntro();
-    if(B.kind==='wild'){L(`A wild <b>${nm(fm())}</b> (Lv ${fm().lvl}) bursts out of the brush!`);if(fm().shiny){L('✦ It glitters in the light. A <b>shiny</b> one!','big');setTimeout(()=>{if($('#fx')){sparkles(pos('f'),'#ffe9a0',22);rings(pos('f'),'#ffd35c',2,140)}},200)}}
+    if(B.kind==='wild'){L(`A wild <b>${nm(fm())}</b> (Lv ${fm().lvl}) bursts out of the brush!`);if(fm().shiny){L('✦ It glitters in the light. A <b>shiny</b> one!','big');setTimeout(()=>shinyAnim('f'),150)}}
     else{L(`<b>${B.trainer.n}</b>${B.trainer.title!=='Traveler'?`, ${B.trainer.title},`:''} wants to battle.`);L(`“${B.trainer.line}”`,'sys');await sleep(500);L(`${B.trainer.n} sends out <b>${nm(fm())}</b> (Lv ${fm().lvl}).`);await sendOut('f');if(fm().shiny)L('✦ It glitters in the light. A <b>shiny</b> one!','big');}
     L(`Go, <b>${nm(pm())}</b>!`);await sendOut('p');
     if(B.weather)L(`${wxIcon[B.weather]} ${WX[B.weather].on}`,'sys');wxEnter(fm());wxEnter(pm());abEnter(fm(),'f');abEnter(pm(),'p');updateCombatants(false);
@@ -10284,10 +10284,13 @@ function owDraw(K,now){const c=K.ctx,M=K.map,n=K.n||1;c.setTransform(n,0,0,n,0,0
   // it covers anyone standing behind (north of) it, but not someone standing in front of it
   if(owOk(K.upper)){const U=K.upper,UW=U.naturalWidth,r0=Math.max(0,Math.floor(cam.y/16)-1),r1=Math.min(Math.ceil(U.naturalHeight/16),Math.floor((cam.y+192)/16)+3);
     for(let r=r0;r<r1;r++)ents.push({y:r*16+8,draw:()=>c.drawImage(U,0,r*16,UW,16,-cam.x,r*16-cam.y,UW,16)})}
+  // tall grass covers the lower half of whoever stands in it, sorted with everyone else so it never covers someone in front
+  const grassOver=(px,py)=>{if(!M.grass||!owOk(K.lower))return;px=Math.round(px);py=Math.round(py);const y0=py+8,y1=py+16;
+    for(let ty=Math.floor(y0/16);ty*16<y1;ty++)for(let tx=Math.floor(px/16);tx*16<px+16;tx++){if(!(M.grass[ty]&&M.grass[ty][tx]==='1'))continue;
+      for(let cx=Math.max(px,tx*16);cx<Math.min(px+16,tx*16+16);cx+=2){const top=y0+[2,0,1,3,0,2,1,0][((cx>>1)&7)],ay=Math.max(top,ty*16+8),by=Math.min(y1,ty*16+16);if(by>ay)c.drawImage(K.lower,cx,ay,2,by-ay,cx-cam.x,ay-cam.y,2,by-ay)}}};
+  ents.push({y:K.py+.1,draw:()=>grassOver(K.px,K.py)});
+  if(K.fol&&K.fol.px!=null)ents.push({y:K.fol.py-.4,draw:()=>grassOver(K.fol.px,K.fol.py)});
   ents.sort((a,b)=>a.y-b.y).forEach(e=>e.draw());
-  // tall grass covers feet
-  const o=state.ow;const gx=Math.round(K.px/16),gy=Math.round(K.py/16);
-  for(const[ex,ey]of[[gx,gy],K.fol?[K.fol.x,K.fol.y]:null].filter(Boolean)){if(M.grass&&M.grass[ey]&&M.grass[ey][ex]==='1'&&owOk(K.lower))c.drawImage(K.lower,ex*16,ey*16+8,16,8,ex*16-cam.x,ey*16+8-cam.y,16,8)}
 }
 
 /* ============ PLATINUM MENUS: BAG, POKÉ MART, PC ============
@@ -12852,6 +12855,39 @@ for(const[key,mons]of Object.entries(TOWN_MONS)){const M=OW_MAPS[key];if(!M||!M.
   for(const c of cand){if(picked.length>=mons.length)break;if(picked.every(q=>Math.abs(q[0]-c[0])+Math.abs(q[1]-c[1])>=7))picked.push(c)}
   picked.forEach(([x,y],i)=>{const mon=mons[i],id='n'+String(mon).padStart(3,'0');const o=owNpcFn({id:key+'_tmon'+i,mon,x,y,dir:['down','left','right','up'][hash(key+i)%4],wander:true},M,key);
     o.say=()=>[`${SP[id]?SP[id].n:'Pokémon'}: ${['Mew','Pii','Kyuu','Gyaoo','Rrrr'][mon%5]}${OW_CRY[mon%4]}`,TOWN_MON_LINE[hash(key+i)%TOWN_MON_LINE.length]];M.npcs.push(o)})}
+
+/* The Gen 4 shiny sparkle: a replay of the game's own particle emitters (status_effect.spa, emitters 0 and 1) */
+const SHINY_TEX=new Image();SHINY_TEX.src='sprites/ui/hgss/fx/shiny_star.png';const SHINY_TINT={};
+function shinyTint(r,g,b){const k=(r>>3)+','+(g>>3)+','+(b>>3);if(SHINY_TINT[k])return SHINY_TINT[k];if(!SHINY_TEX.complete||!SHINY_TEX.naturalWidth)return null;
+  const cv=document.createElement('canvas');cv.width=cv.height=64;const x=cv.getContext('2d');x.drawImage(SHINY_TEX,0,0);x.globalCompositeOperation='multiply';x.fillStyle=`rgb(${r},${g},${b})`;x.fillRect(0,0,64,64);
+  x.globalCompositeOperation='destination-in';x.drawImage(SHINY_TEX,0,0);return SHINY_TINT[k]=cv}
+function shinyAnim(side){return new Promise(res=>{const fx=$('#fx');if(!fx||!$('.arena'))return res();const P=pos(side),ar=$('.arena').getBoundingClientRect();
+  const cv=document.createElement('canvas');cv.width=Math.round(ar.width);cv.height=Math.round(ar.height);cv.style.cssText='position:absolute;left:0;top:0;width:100%;height:100%;image-rendering:pixelated';fx.appendChild(cv);
+  const c=cv.getContext('2d');c.imageSmoothingEnabled=false;const U=Math.max(14,P.w*.2);
+  const lerp=(a,b,t)=>a+(b-a)*t,ri=(a,b)=>a+Math.random()*(b-a);
+  const curve3=(r,s,m,e,i,o)=>r<i?s+(m-s)*r/i:r<o?m:e+(r-255)*(e-m)/(255-o);
+  const W=[248,248,248],ps=[];
+  // emitter 0: seven stars thrown out in an even ring, spun around the Pokémon, each trailing small sparks
+  for(let i=0;i<7;i++){const a=i/7*Math.PI*2,dx=Math.cos(a),dy=Math.sin(a);ps.push({e:0,x:dx*.3718,y:dy*.3718,vx:dx*.2974,vy:dy*.2974,age:0,life:26,rot:0,av:ri(-4751,-4508)/65536*Math.PI*2})}
+  const spin=-(65536-63708)/65536*Math.PI*2,cs=Math.cos(spin),sn=Math.sin(spin);let f=0,acc=0,last=performance.now();
+  const col0=r=>r<51?W:r<128?W.map((v,k)=>lerp(v,[8,192,248][k],(r-51)/77)):r<204?[8,192,248]:[8,192,248].map((v,k)=>lerp(v,[144,200,248][k],(r-204)/51));
+  const col1=r=>r<51?W:r<128?W.map((v,k)=>lerp(v,[104,224,248][k],(r-51)/77)):r<204?[104,224,248]:[104,224,248].map((v,k)=>lerp(v,248,(r-204)/51));
+  function step(){
+    if(f>=10&&f<24&&f%3===0){const z=ri(-1,1),t=ri(0,Math.PI*2),q=Math.sqrt(1-z*z),dx=q*Math.cos(t),dy=q*Math.sin(t);ps.push({e:1,x:dx*2.0073,y:dy*2.0073,vx:dx*.0557,vy:dy*.0557,age:0,life:15,rot:0,av:0})}
+    for(const p of ps){if(p.dead)continue;const r=Math.min(255,p.age*255/p.life|0);
+      if(p.e===0){p.sc=.4758*curve3(r,.2083,1.6357,.8625,128,128);p.al=curve3(r,1,31,0,57,192)/31;p.col=col0(r);
+        if(p.age%2===0)ps.push({e:2,x:p.x,y:p.y,vx:0,vy:0,age:0,life:6,rot:p.rot,av:p.av,base:p.sc*42/255});
+        const nx=p.x*cs-p.y*sn,ny=p.x*sn+p.y*cs;p.x=nx;p.y=ny;p.vx*=428/512;p.vy*=428/512}
+      else if(p.e===1){p.sc=.3999*curve3(r,.0891,1.1599,.0891,128,128);p.al=curve3(r,31,31,1,128,130)/31;p.col=col1(r);p.vx*=424/512;p.vy*=424/512}
+      else{p.sc=p.base*(1-p.age/p.life);p.al=1-p.age/p.life;p.col=W}
+      p.rot+=p.av;p.x+=p.vx;p.y+=p.vy;p.age++;if(p.age>p.life)p.dead=true}
+    f++}
+  function draw(){c.clearRect(0,0,cv.width,cv.height);for(const p of ps){if(p.dead||!p.sc||p.al<=0)continue;const t=shinyTint(...p.col.map(v=>v|0));if(!t)continue;
+    const h=p.sc*U*2;c.save();c.globalAlpha=Math.max(0,Math.min(1,p.al));c.translate(P.x+p.x*U,P.y-p.y*U);c.rotate(-p.rot);c.drawImage(t,-h/2,-h/2,h,h);c.restore()}}
+  function tick(now){acc+=Math.min(100,now-last);last=now;while(acc>=1000/60){step();acc-=1000/60}draw();
+    if(f<50||ps.some(p=>!p.dead))requestAnimationFrame(tick);else{cv.remove();res()}}
+  requestAnimationFrame(tick)})}
+{const _so=sendOut;sendOut=async function(side){await _so.apply(this,arguments);try{const m=side==='p'?pm():fm();if(m&&m.shiny&&B&&!B.ended)await shinyAnim(side)}catch(e){}}}
 buildPixelCache().then(npcInit,npcInit).then(titleScreen,titleScreen);
 </script>
 
