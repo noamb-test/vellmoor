@@ -12505,9 +12505,7 @@ function gymHedge(M,h){const s=gym2S(M);s.cut=s.cut||new Set();const k=h[0]+','+
   if(p.type==='quiz')for(const g of p.gates){if(s.open&&s.open.has(g.id))continue;const px=X(g.x),py=Y(g.y);
     c.fillStyle='rgba(40,110,220,.85)';c.fillRect(px+1,py+2,14,14);c.fillStyle='#8fd0ff';for(let k=0;k<3;k++){const h=(now/90+k*5+g.x*3)%14;c.fillRect(px+3+k*4,py+14-h,3,h)}
     c.fillStyle='#ffffff';c.fillRect(px+2+((now/120)|0)%12,py+1,2,2);c.fillRect(px+12-((now/150)|0)%10,py+3,1,1)}
-  if(p.type==='heat')for(const[id,cells]of Object.entries(p.gates)){if(s.open&&s.open.has(id))continue;for(const[x,y]of cells){const px=X(x),py=Y(y);
-    c.fillStyle='rgba(200,40,10,.85)';c.fillRect(px,py+4,16,12);for(let k=0;k<4;k++){const h=6+((now/70+k*7+x*5+y*3)%7);c.fillStyle=k%2?'#ffb020':'#ff6010';c.fillRect(px+k*4,py+16-h,4,h)}
-    c.fillStyle='#fff0a0';c.fillRect(px+6,py+12,4,3)}}
+  if(p.type==='heat')for(const[id,cells]of Object.entries(p.gates)){if(s.open&&s.open.has(id))continue;gymFlameWall(c,cells,X,Y,now)}
   if(p.type==='cans'&&!s.solved)for(const[x,y]of p.gate){const px=X(x),py=Y(y);c.fillStyle='rgba(255,236,120,.35)';c.fillRect(px,py,16,16);
     c.strokeStyle=Math.floor(now/70)%2?'#ffffff':'#ffe040';c.lineWidth=2;c.beginPath();c.moveTo(px,py+8);for(let k=1;k<=4;k++)c.lineTo(px+k*4,py+8+((k+Math.floor(now/55)+y)%2?-5:5));c.stroke()}
   if(p.type==='hedge'){const T=p.tree;for(const[x,y]of p.hedges){if(s.cut&&s.cut.has(x+','+y))continue;const px=X(x),py=Y(y);
@@ -12519,6 +12517,33 @@ function gymHedge(M,h){const s=gym2S(M);s.cut=s.cut||new Set();const k=h[0]+','+
     c.fillStyle='#fff';c.font='bold 7px "Vellmoor DS",monospace';c.textBaseline='middle';c.fillText('HEAT',6,11)}
   if(p.type==='hedge'){const left=HEDGE_CUTS-(s.cut?s.cut.size:0);c.fillStyle='rgba(10,24,10,.7)';c.fillRect(4,4,58,13);c.fillStyle='#c8f0a0';c.font='bold 7px "Vellmoor DS",monospace';c.textBaseline='middle';c.fillText(`CUTS LEFT ${left}`,7,11)}}}
 
+
+/* a wall of fire: pixel flame tongues that flicker and sway, a hot glow, and embers drifting up */
+const FLAME_COL=['#7a1006','#c4200a','#f04a10','#ff8a1c','#ffc23a','#fff2a0'];
+function gymFlame(c,px,py,now,seed){const t=now/1000;
+  const g=c.createRadialGradient(px+8,py+12,2,px+8,py+10,18);g.addColorStop(0,'rgba(255,150,40,.45)');g.addColorStop(1,'rgba(255,80,10,0)');c.fillStyle=g;c.fillRect(px-10,py-10,36,32);
+  c.fillStyle='#3a0c06';c.fillRect(px,py+14,16,2);c.fillStyle='#8a2208';c.fillRect(px+1,py+13,14,1);
+  const tongues=[[2,4,1.0],[6,5,1.25],[11,4,1.1],[8,3,.8]];
+  for(let k=0;k<tongues.length;k++){const[cx,base,amp]=tongues[k],ph=seed*.37+k*1.9;
+    const h=Math.round((10+4*Math.sin(t*7.3+ph)+2*Math.sin(t*13.1+ph*2))*amp);
+    for(let r=0;r<h;r++){const f=r/h,w=Math.max(1,Math.round(base*Math.pow(1-f,.75))),sway=Math.round(Math.sin(t*9+ph+r*.45)*f*2.2);
+      const ci=Math.min(FLAME_COL.length-1,Math.floor((1-f)*3.2+ (r<2?0:1))),y=py+14-r,x0=px+cx-Math.floor(w/2)+sway;
+      c.fillStyle=FLAME_COL[Math.max(1,Math.min(4,4-Math.floor(f*4)))];c.fillRect(x0,y,w,1);
+      if(w>2&&f<.6){c.fillStyle=f<.3?FLAME_COL[5]:FLAME_COL[4];c.fillRect(x0+1,y,w-2,1)}}}
+  for(let e=0;e<3;e++){const life=((t*1.6+e*.33+seed*.11)%1),ex=px+3+((seed*5+e*11)%10)+Math.round(Math.sin(t*4+e)*2),ey=py+12-Math.round(life*18);
+    c.globalAlpha=1-life;c.fillStyle=e%2?'#ffd060':'#ff7a20';c.fillRect(ex,ey,1,1);c.globalAlpha=1}}
+
+function gymFlameWall(c,cells,X,Y,now){const xs=cells.map(q=>q[0]),ys=cells.map(q=>q[1]);const x0=X(Math.min(...xs)),y0=Y(Math.min(...ys)),w=(Math.max(...xs)-Math.min(...xs)+1)*16,h=(Math.max(...ys)-Math.min(...ys)+1)*16,t=now/1000,seed=xs[0]*7+ys[0]*13;
+  const g=c.createRadialGradient(x0+w/2,y0+h*.75,3,x0+w/2,y0+h*.6,Math.max(w,h));g.addColorStop(0,'rgba(255,140,40,.5)');g.addColorStop(1,'rgba(255,60,10,0)');c.fillStyle=g;c.fillRect(x0-12,y0-14,w+24,h+24);
+  const bg=c.createLinearGradient(0,y0+h,0,y0);bg.addColorStop(0,'rgba(120,16,6,.95)');bg.addColorStop(.55,'rgba(200,40,10,.75)');bg.addColorStop(1,'rgba(240,80,16,0)');c.fillStyle=bg;c.fillRect(x0,y0,w,h);
+  c.fillStyle='#ffb02a';c.fillRect(x0,y0+h-2,w,1);c.fillStyle='#fff0a0';for(let x=x0+((t*40)|0)%5;x<x0+w;x+=5)c.fillRect(x,y0+h-2,2,1);
+  for(let cx=1;cx<w;cx+=3){const ph=seed*.37+cx*.83,amp=.7+.3*Math.sin(cx*1.7+seed),base=4+((cx*7+seed)%3);
+    const hh=Math.min(h+4,Math.round((h*.55+h*.25*Math.sin(t*7.1+ph)+h*.12*Math.sin(t*12.7+ph*2.1))*amp));
+    for(let r=0;r<hh;r++){const f=r/hh,ww=Math.max(1,Math.round(base*Math.pow(1-f,.8))),sway=Math.round(Math.sin(t*8.5+ph+r*.35)*f*2.5),y=y0+h-1-r,xx=x0+cx-(ww>>1)+sway;
+      c.fillStyle=FLAME_COL[Math.max(1,Math.min(4,4-Math.floor(f*4)))];c.fillRect(xx,y,ww,1);
+      if(ww>2&&f<.55){c.fillStyle=f<.25?FLAME_COL[5]:FLAME_COL[4];c.fillRect(xx+1,y,ww-2,1)}}}
+  for(let e=0;e<Math.ceil(w/5);e++){const life=((t*1.4+e*.29+seed*.07)%1),ex=x0+((seed*5+e*9)%w)+Math.round(Math.sin(t*3+e)*2),ey=y0+h-4-Math.round(life*(h+14));
+    c.globalAlpha=1-life;c.fillStyle=e%2?'#ffe070':'#ff7a20';c.fillRect(ex,ey,1,1);c.globalAlpha=1}}
 /* ================= the seven gyms ================= */
 {const M=OW_MAPS.a4_gym;if(M){const gates=[{id:'q1',x:9,y:15,who:'Marlo',lv:0},{id:'q2',x:9,y:12,who:'Tidus',lv:1},{id:'q2b',x:4,y:12,who:'Pearl',lv:1},{id:'q3',x:12,y:8,who:'Wade',lv:2}];
   const signs={};for(const g of gates)signs[g.x+','+g.y]=()=>gymQuizAsk(M,g);
