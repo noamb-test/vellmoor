@@ -12616,7 +12616,7 @@ if(typeof faintsMulti==='function'){const _fm=faintsMulti;faintsMulti=async func
    The lighthouse at the end of Port Brinegate's quay is open. Its great lamp has gone dark: the lens shattered
    and the pieces were scattered across the upper floors, which are pitch black. Find all three Lens Pieces,
    fit them back into the lamp at the top, and the keeper lets you pick a Water-type partner to take with you. */
-const LH_COLL={"lh1":["111111111111","111111111111","111111111111","111111111111","100000000001","100000000001","100000000001","100000000001","100000000001","110000000011","111000000111","111110011111"],"lh2":["111111111111","111111111111","111111111111","111111111111","100000000001","100000000001","100000000001","111110011111","100000000001","110100001011","111000000111","111111111111"],"lh3":["111111111111","111111111111","111111111111","111111111111","100001000001","100001000001","100001000001","100001000001","100001011101","110100000011","111000000111","111111111111"],"lh4":["1111111111","1111111111","1111111111","1111111111","1000000001","1000110001","1000110001","1000000001","1111111111"]};
+const LH_COLL={"lh1":["111111111111","111111111111","111111111111","111111111111","100000000001","100000000001","100000000001","100000000001","100000000001","110000000011","111000000111","111110011111"],"lh2":["111111111111","111111111111","111111111111","111111111111","100000000001","100000000001","100000000001","100000000001","111110011111","110000000011","111000000111","111111111111"],"lh3":["111111111111","111111111111","111111111111","111111111111","100001000001","100001000001","100001000001","100001000001","100001011101","110100000011","111000000111","111111111111"],"lh4":["1111111111","1111111111","1111111111","1111111111","1000000001","1000110001","1000110001","1000000001","1111111111"]};
 const LH_STARTERS=['n007','n158','n258','n393','n501','n656','n728','n816','n912'];
 const LH=()=>state.lh||(state.lh={got:{},lit:false,picked:false});
 QUESTS.push({id:'lh1',giver:4,title:'The Dark Lighthouse',text:'The Brinegate lighthouse has gone dark. Find the three Lens Pieces on its upper floors, then fit them into the great lamp at the top.',
@@ -12632,7 +12632,7 @@ function lhPiece(M,id,x,y){M.npcs.push({id:'lh_'+id,sheet:'item_ball',x,y,dir:'d
     return[`${P().name} found a Lens Piece!`,n<3?`That’s ${n} of 3. The other pieces must be somewhere in the dark.`:'That’s all 3! Take them up to the great lamp at the top of the tower.']}})}
 { // 1F: the keeper's floor
   const M=lhMap('a4_lh1','lh1',{title:'Lighthouse 1F'});M.exits={'5,11':['a4',38,32,'down'],'6,11':['a4',38,32,'down']};
-  lhStairs(M,['8,4','9,4','8,5','9,5'],['a4_lh2',8,6,'down']);
+  lhStairs(M,['8,4'],['a4_lh2',8,7,'down']);
   const lhAccepted=()=>state.quests.active.includes('lh1')||state.quests.done.includes('lh1');
   M.npcs.push({id:'lh_keeper',sheet:'sailor',x:4,y:6,dir:'down',say:()=>{const s=LH(),n=Object.keys(s.got).length;
     if(s.picked)return['Look at that beam! Ships can find Port Brinegate again.','Take good care of your new partner.'];
@@ -12647,20 +12647,20 @@ function lhPiece(M,id,x,y){M.npcs.push({id:'lh_'+id,sheet:'item_ball',x,y,dir:'d
 }
 { // 2F
   const M=lhMap('a4_lh2','lh2',{title:'Lighthouse 2F'});
-  lhStairs(M,['8,4','9,4','8,5','9,5'],['a4_lh1',8,6,'down']);lhStairs(M,['2,4','3,4','2,5','3,5'],['a4_lh3',2,6,'down']);
-  lhPiece(M,'a',1,8);lhFight(M,'a4_lh_t1','Sailor','Duff','sailor',7,9,'left',3,0,'Who’s there? I can’t see a thing up here!','Phew. Watch your step in the dark.');
-  M.lhDark={type:'ghost',lanterns:[[1,7],[10,7]],r:24,lr:44};for(const[x,y]of M.lhDark.lanterns)M.signs[x+','+y]=owPzSign('@lantern',M);
+  lhStairs(M,['8,6'],['a4_lh1',8,5,'down']);lhStairs(M,['2,4'],['a4_lh3',2,7,'down']);
+  lhPiece(M,'a',2,9);lhFight(M,'a4_lh_t1','Sailor','Duff','sailor',8,9,'left',3,0,'Who’s there? I can’t see a thing up here!','Phew. Watch your step in the dark.');
+  M.lhDark={type:'ghost',lanterns:[[1,8],[10,8]],r:24,lr:44};for(const[x,y]of M.lhDark.lanterns)M.signs[x+','+y]=owPzSign('@lantern',M);
 }
 { // 3F
   const M=lhMap('a4_lh3','lh3',{title:'Lighthouse 3F'});
-  lhStairs(M,['2,4','3,4','2,5','3,5'],['a4_lh2',2,6,'down']);lhStairs(M,['8,4','9,4','8,5','9,5'],['a4_lh4',1,6,'down']);
+  lhStairs(M,['2,6'],['a4_lh2',2,5,'down']);lhStairs(M,['8,4'],['a4_lh4',2,6,'right']);
   lhPiece(M,'b',1,8);lhPiece(M,'c',10,7);
   lhFight(M,'a4_lh_t2','Sailor','Morgan','sailor',4,10,'right',3,1,'The lighthouse is MY training spot!','You’ve got sea legs, kid.');
   lhFight(M,'a4_lh_t3','Swimmer','Coral','swimmer_f',9,9,'left',2,1,'I came up to dry off and got lost in the dark!','Okay, okay, you win.');
   M.lhDark={type:'ghost',lanterns:[[5,4],[8,8]],r:24,lr:44};for(const[x,y]of M.lhDark.lanterns)M.signs[x+','+y]=owPzSign('@lantern',M);
 }
 { // the lamp room
-  const M=lhMap('a4_lh4','lh4',{title:'Lighthouse Lamp Room'});lhStairs(M,['1,4','2,4','1,5','2,5'],['a4_lh3',8,6,'down']);
+  const M=lhMap('a4_lh4','lh4',{title:'Lighthouse Lamp Room'});lhStairs(M,['1,6'],['a4_lh3',8,5,'down']);
   const lamp=()=>{const s=LH(),n=Object.keys(s.got).length;if(s.lit)return['The great lamp blazes out over the sea.'];
     if(n<3)return['The great lamp. Its lens is shattered.',`You have ${n} of the 3 Lens Pieces. Find the rest!`];
     owSay(['The great lamp. Its lens is shattered.','You have all 3 Lens Pieces.'],()=>owChoose(['Fit them in','Not yet'],c=>{if(c!==0)return;s.lit=true;owPzSfx&&owPzSfx();try{questTick()}catch(e){}save();
