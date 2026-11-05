@@ -12708,11 +12708,11 @@ const owOutdoor=K=>K&&K.map&&state&&OW_AREA[state.loc]===K.map.key;
 /* ---- doors ---- */
 const DOOR={open:170,walk:230,fade:200};let OWFADE=null;
 {const _d=owDoor;owDoor=function(K,name){const f=K.map.doorAct[name],at=(K.map.doors||{})[name];if(!f||!at||K.door)return _d.apply(this,arguments);
-  K.held=[];K.busy=true;K.door={x:at[0],y:at[1],mode:'in',t0:performance.now(),f,sy:K.py,sx:K.px};K.dir='up'}}
+  K.held=[];K.busy=true;K.door={name,x:at[0],y:at[1],mode:'in',t0:performance.now(),f,sy:K.py,sx:K.px};K.dir='up'}}
 {const _w=owWarp;owWarp=function(map,x,y,dir){const from=OWK&&OWK.map&&OWK.map.key;const r=_w.apply(this,arguments);
   OWFADE={t0:performance.now(),d:DOOR.fade};
-  const M=OW_MAPS[map];if(M&&M.doors&&map!==from&&(dir==='down'||!dir)){const dd=Object.values(M.doors).find(v=>v[0]===x&&v[1]===y-1);
-    if(dd)setTimeout(()=>{const K=OWK;if(!K||K.map.key!==map)return;K.busy=true;K.held=[];K.dir='down';K.door={x:dd[0],y:dd[1],mode:'out',t0:performance.now()};K.py=dd[1]*16;K.px=dd[0]*16},0)}
+  const M=OW_MAPS[map];if(M&&M.doors&&map!==from&&(dir==='down'||!dir)){const de=Object.entries(M.doors).find(([n,v])=>v[0]===x&&v[1]===y-1),dd=de&&de[1];
+    if(dd)setTimeout(()=>{const K=OWK;if(!K||K.map.key!==map)return;K.busy=true;K.held=[];K.dir='down';K.door={name:de[0],x:dd[0],y:dd[1],mode:'out',t0:performance.now()};K.py=dd[1]*16;K.px=dd[0]*16},0)}
   return r}}
 function doorOpenAmt(K,now){const D=K.door;if(!D)return 0;const t=now-D.t0;
   if(D.mode==='in')return Math.min(1,t/DOOR.open);
@@ -12722,13 +12722,29 @@ function doorTick(K,now){const D=K.door;if(!D)return;const t=now-D.t0;
     if(t>=DOOR.open+DOOR.walk+DOOR.fade){K.door=null;K.busy=false;K.py=D.sy;const f=D.f;f()}}
   else{const a=DOOR.fade,w=Math.max(0,Math.min(1,(t-a)/DOOR.walk));K.py=(D.y+w)*16;
     if(t>=a+DOOR.walk+DOOR.open){K.door=null;K.busy=false;K.py=(D.y+1)*16;state.ow.y=D.y+1}}}
-{const _u=owUnder;owUnder=function(K,cam,now){_u.apply(this,arguments);const D=K.door;if(!D||!owOk(K.lower))return;const o=doorOpenAmt(K,now);if(o<=0)return;
-  const c=K.ctx,px=D.x*16-cam.x,py=D.y*16-cam.y,gap=Math.round(8*o);
-  c.fillStyle='#120c0c';c.fillRect(px+1,py,14,16);
-  // the two halves of the door slide apart
-  c.drawImage(K.lower,D.x*16,D.y*16,8,16,px-gap,py,8,16);c.drawImage(K.lower,D.x*16+8,D.y*16,8,16,px+8+gap,py,8,16);
-  // tidy the edges: cover the slid-out parts with the wall beside the door
-  if(gap){c.drawImage(K.lower,(D.x-1)*16+16-gap,D.y*16,gap,16,px-gap,py,gap,16);c.drawImage(K.lower,(D.x+1)*16,D.y*16,gap,16,px+16,py,gap,16)}}}
+/* each kind of door opens its own way:
+   slide - automatic glass doors (Pokémon Centers, Marts, gyms, the department store...) part in the middle
+   swing - wooden house doors swing inward on their hinge
+   open  - archways and open entrances have no door at all, you just walk in */
+const DOOR_KIND={center:'slide',mart:'slide',gym:'slide',dept:'slide',station:'slide',gamecorner:'slide',tower:'slide',e4:'slide',guild:'open',lighthouse:'open',theater:'open'};
+const DOOR_RECT={center:[-2,-3,20,18],mart:[-4,-16,24,20],gym:[-3,-16,22,22],e4:[-2,-12,20,16],dept:[-2,-14,20,18],station:[-2,-14,20,18],gamecorner:[-2,-14,20,18],tower:[-2,-14,20,18],
+  home:[-2,-13,20,15],smelter:[-1,-13,15,18],lanterns:[-1,-13,15,18],lab:[-3,-7,14,11]};
+const doorKind=n=>DOOR_KIND[String(n||'').replace(/\d+$/,'')]||'swing';
+const doorRect=n=>DOOR_RECT[String(n||'').replace(/\d+$/,'')]||[-2,-14,18,18];
+/* the door art lives in the building's top layer, so the animation is drawn on top of everything,
+   then the player is drawn again so you walk into the doorway in front of it */
+const owCamOf=K=>{const M=K.map,ax=(w,v,p)=>w<=v?Math.round((w-v)/2):Math.round(Math.max(0,Math.min(w-v,p)));return{x:ax(M.w*16,256,K.px+8-128),y:ax(M.h*16,192,K.py+8-96)}};
+function doorDraw(K,now){const D=K.door;if(!D||!owOk(K.lower))return;const kind=doorKind(D.name);if(kind==='open')return;
+  const o=doorOpenAmt(K,now);if(o<=0)return;const cam=owCamOf(K),c=K.ctx,[rx,ry,rw,rh]=doorRect(D.name),sx=D.x*16+rx,sy=D.y*16+ry,px=sx-cam.x,py=sy-cam.y;
+  const part=(x,w,dx,dw)=>{c.drawImage(K.lower,x,sy,w,rh,dx,py,dw,rh);if(owOk(K.upper))c.drawImage(K.upper,x,sy,w,rh,dx,py,dw,rh)};
+  c.save();c.beginPath();c.rect(px,py,rw,rh);c.clip();
+  const g=c.createLinearGradient(0,py,0,py+rh);g.addColorStop(0,'#05060a');g.addColorStop(1,'#2a221d');c.fillStyle=g;c.fillRect(px,py,rw,rh);
+  if(kind==='slide'){const h=Math.floor(rw/2),s=Math.round(h*o*.92);part(sx,h,px-s,h);part(sx+h,rw-h,px+h+s,rw-h)}
+  else{const w=Math.max(1,Math.round(rw*(1-o*.8)));part(sx,rw,px,w);c.fillStyle=`rgba(0,0,0,${.4*o})`;c.fillRect(px,py,w,rh);c.fillStyle='rgba(255,236,190,.45)';c.fillRect(px+w,py+1,1,rh-1)}
+  c.restore();
+  // the player steps into the open doorway
+  if(owOk(K.player)&&K.py<=(D.y+1)*16)owSheet(K,K.player,K.dir,Math.floor(now/130)%2?1:0,K.px,K.py,cam)}
+{const _o=owOver;owOver=function(K,now){const r=_o.apply(this,arguments);try{doorDraw(K,now)}catch(e){}return r}}
 /* ---- draw weather and fades on top of the overworld ---- */
 let OWWX=null;
 {const _od=owDraw;owDraw=function(K,now){doorTick(K,now);const r=_od.apply(this,arguments);const c=K.ctx;
