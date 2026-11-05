@@ -10298,7 +10298,7 @@ function owDraw(K,now){const c=K.ctx,M=K.map,n=K.n||1;c.setTransform(n,0,0,n,0,0
 const PTD='sprites/ui/platinum/';
 const PT_ITEMICON=new Set(["amuletcoin", "assaultvest", "blackbelt", "candy", "charcoal", "choiceband", "choicespecs", "dragonfang", "everstone", "eviolite", "focussash", "freshwater", "fullheal", "fullrestore", "grune", "hardstone", "hpup", "kingsrock", "leftovers", "lemonade", "lens", "lifeorb", "luckyegg", "lumberry", "magnet", "metalcoat", "miracleseed", "mrune", "muscleband", "mysticwater", "oranberry", "poisonbarb", "potion", "quickclaw", "revivify", "rune", "scopelens", "sharpbeak", "shellbell", "silkscarf", "sitrusberry", "soda", "softsand", "spelltag", "uball", "wiseglasses", "greater", "supreme", "calcium", "blackglasses", "nevermeltice", "silverpowder", "twistedspoon"]);
 const ptIcon=k=>PT_ITEMICON.has(k)?`<img src="${PTD}items/${k}.png" alt="">`:'';
-const ptMonIcon=m=>{const d=+m.sp.slice(1);return d<=493?`<i class="ptMon" style="background-image:url('${PTD}icons/${d}.png')"></i>`:`<i class="ptMon alt">${monSprite(m)}</i>`};
+const ptMonIcon=m=>{const d=+m.sp.slice(1);return d>=1&&d<=1025?`<i class="ptMon" style="background-image:url('${PTD}icons/${d}.png')"></i>`:`<i class="ptMon alt">${monSprite(m)}</i>`};
 let PTU=null;
 function ptOpen(html,keys,onClose){ptClose(true);const v=document.getElementById('owView');let host=v;
   if(!host){host=document.createElement('div');host.className='ptHost';host.innerHTML='<div class="owView ptSolo" id="owView"><canvas width="256" height="192" style="width:768px;height:576px"></canvas></div>';document.body.appendChild(host);host=host.querySelector('#owView');PTU={solo:host.parentNode}}
@@ -12590,6 +12590,24 @@ function mpUserList(){if(!MP.user){openModal(`<header><div><p class="label">Onli
 .mpList li{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:9px 11px;border:1px solid var(--line,#2a3140);border-radius:10px;background:rgba(255,255,255,.03)}
 .mpList li.mpMe{opacity:.8}.mpAt{margin-left:auto;font-size:14px;color:var(--muted,#aab)}
 .mpTag{font-size:12px;padding:1px 7px;border-radius:99px;background:#1f6a42;color:#dcf6e6}.mpBat{background:#7a2a2a;color:#ffe0e0}.mpFoot{font-size:13px;margin-top:8px}`;document.head.appendChild(st)}
+
+/* ============ HP BARS THAT DRAIN LIKE THE GAMES ============
+   The health box shows the HP it last showed, then slides to the real value: the bar shrinks smoothly,
+   turns yellow under half and red under a fifth, and your HP number counts down as it goes. */
+let HPV=new WeakMap();const HPA=new Set();let HPRAF=0;
+{const _fb=frBox;frBox=function(m,side){const s=stats(m),real=Math.max(0,m.hp);let d=HPV.has(m)?HPV.get(m):real;if(!HPV.has(m))HPV.set(m,real);
+  const keep=m.hp;m.hp=Math.round(d);let h;try{h=_fb.call(this,m,side)}finally{m.hp=keep}
+  if(Math.round(d)!==real){HPA.add(m);if(!HPRAF)HPRAF=requestAnimationFrame(hpTick)}
+  return h.replace('<div class="frb ','<div data-hpk="'+(m.uid||'')+'" class="frb ')}}
+function hpTick(){HPRAF=0;for(const m of[...HPA]){const s=stats(m),real=Math.max(0,m.hp),v=Math.max(.34,s.maxhp/55);let d=HPV.get(m);if(d===undefined){HPA.delete(m);continue}
+  d=d<real?Math.min(real,d+v):Math.max(real,d-v);HPV.set(m,d);
+  const el=document.querySelector(`.frb[data-hpk="${m.uid}"]`);
+  if(el){const f=Math.max(0,Math.min(1,d/s.maxhp)),bar=el.querySelector('.frhp>i'),n=el.querySelector('.frc');
+    if(bar){bar.style.width=(f*100)+'%';bar.className=f>.5?'g':f>.2?'y':'r'}if(n)n.textContent=Math.round(d)}
+  if(d===real)HPA.delete(m)}
+  if(HPA.size)HPRAF=requestAnimationFrame(hpTick)}
+{const _bt=battle;battle=function(){HPV=new WeakMap();HPA.clear();return _bt.apply(this,arguments)}}
+{const st=document.createElement('style');st.textContent='.frhp>i{transition:none!important}';document.head.appendChild(st)}
 buildPixelCache().then(npcInit,npcInit).then(titleScreen,titleScreen);
 </script>
 
