@@ -12422,7 +12422,7 @@ function gym2Def(key,o){const old=OW_MAPS[key];if(!old)return;const out=Object.v
   M.exits={};for(const x of o.exitX)M.exits[x+','+o.exitY]=out.slice();
   M.signs={};for(const[x,y]of o.statues)M.signs[x+','+y]=owPzSign('@statue',M);
   for(const[k,f]of Object.entries(o.signs||{}))M.signs[k]=f;
-  const npcs=[{role:'gymLeader',x:o.leader[0],y:o.leader[1],dir:o.leader[2]||'down'},{role:'gymTrainer',x:o.gt[0],y:o.gt[1],dir:o.gt[2],sight:o.gt[3]},
+  const npcs=[{role:'gymLeader',x:o.leader[0],y:o.leader[1],dir:o.leader[2]||'down'},{role:'gymTrainer',x:o.gt[0],y:o.gt[1],dir:o.gt[2],sight:o.gt[3],sheet:o.gt[4]||'ace_trainer_m'},
     {role:'gymExtra',k:2,x:o.e2[0],y:o.e2[1],dir:o.e2[2],sight:o.e2[3]},{role:'gymExtra',k:3,x:o.e3[0],y:o.e3[1],dir:o.e3[2],sight:o.e3[3]},
     {sheet:'gym_guide',x:o.guide[0],y:o.guide[1],dir:'down',say:['Yo! Champ in the making!',...o.tip]}];
   M.npcs=npcs.map(n=>owNpcFn(n,M,key)).filter(Boolean);
@@ -12548,7 +12548,7 @@ function gymFlameWall(c,cells,X,Y,now){const xs=cells.map(q=>q[0]),ys=cells.map(
 {const M=OW_MAPS.a4_gym;if(M){const gates=[{id:'q1',x:9,y:15,who:'Marlo',lv:0},{id:'q2',x:9,y:12,who:'Tidus',lv:1},{id:'q2b',x:4,y:12,who:'Pearl',lv:1},{id:'q3',x:12,y:8,who:'Wade',lv:2}];
   const signs={};for(const g of gates)signs[g.x+','+g.y]=()=>gymQuizAsk(M,g);
   gym2Def('a4_gym',{src:'CeruleanCity_Gym',img:'cerulean_hgwater',exitX:[7,8,9],exitY:18,entry:[8,17],statues:[[6,17],[10,17]],
-    leader:[8,6,'down'],gt:[7,8,'up',2],e2:[6,16,'right',3],e3:[4,7,'right',3],guide:[10,18],signs,
+    leader:[8,6,'down'],gt:[7,7,'right',3,'sailor'],e2:[6,16,'right',3],e3:[4,7,'right',3],guide:[10,18],signs,
     tip:['This is the Tide Quiz! Water spouts block the walkways.','Answer the quiz at each spout to sink it. Get it wrong and a swimmer jumps out to battle you!'],
     pz:{type:'quiz',gates}});
   /* swimmers waiting in the pool: they call out as you walk past */
@@ -12562,39 +12562,39 @@ function gymFlameWall(c,cells,X,Y,now){const xs=cells.map(q=>q[0]),ys=cells.map(
   const signs={};for(const[a,b,id]of valves){const f=()=>gymHeatValve(M,{opens:id});signs[a.join(',')]=f;signs[b.join(',')]=f}
   const set=[];for(const cells of Object.values(gates))for(const[x,y]of cells)set.push([x,y,'0']);
   gym2Def('a6_gym',{src:'CinnabarIsland_Gym',img:'cinnabarisland_gym',set,exitX:[24,25,26],exitY:23,entry:[25,22],statues:[[23,20],[27,20]],
-    leader:[5,4,'down'],gt:[3,6,'right',3],e2:[16,12,'left',3],e3:[5,20,'left',3],guide:[24,20],signs,
+    leader:[5,4,'down'],gt:[6,7,'left',3,'roughneck'],e2:[16,12,'left',3],e3:[5,20,'left',3],guide:[24,20],signs,
     tip:['Welcome to the Furnace! Every step you take heats you up.','Crank the coolant valves (the machines) to cool down. Each one also puts out a flame door. Overheat and you’re back at the start!'],
     pz:{type:'heat',gates,start:[25,22]}})}}
 {const M=OW_MAPS.a8_gym;if(M){const lanterns=[[5,3],[4,9],[8,11],[11,14],[6,16],[1,5]];const signs={};
   for(const[x,y]of lanterns)signs[x+','+y]=owPzSign('@lantern',M);
   gym2Def('a8_gym',{src:'FuchsiaCity_Gym',img:'fuchsiacity_gym',exitX:[6,7,8],exitY:21,entry:[7,20],statues:[[4,19],[10,19]],
-    leader:[7,13,'down'],gt:[11,11,'left',2],e2:[2,16,'right',3],e3:[13,4,'down',3],guide:[11,19],signs,
+    leader:[7,13,'down'],gt:[6,12,'down',3,'hg_itako'],e2:[2,16,'right',3],e3:[13,4,'down',3],guide:[11,19],signs,
     tip:['This is the Unseen Hall. The walls here are invisible, and it’s pitch dark!','Feel your way along. Light the lanterns you find and the hall gets brighter.'],
     pz:{type:'ghost',lanterns,r:22,lr:42}})}}
 {const M=OW_MAPS.a10_gym;if(M){const A={'19,2':'left','11,3':'right','18,3':'down','4,10':'down','16,13':'down','19,14':'up','5,17':'right','4,18':'right','0,20':'up','1,20':'up','13,21':'left','13,22':'left'};
   const stops=['11,2','17,3','19,3','0,11','1,13','18,14','16,15','4,17','13,17','13,18','5,21','1,22'];
   gym2Def('a10_gym',{src:'ViridianCity_Gym',img:'viridiancity_gym',exitX:[16,17,18],exitY:22,entry:[17,21],statues:[[15,20],[19,20]],
-    leader:[2,2,'down'],gt:[6,8,'down',3],e2:[12,10,'left',3],e3:[2,21,'right',3],guide:[16,20],
+    leader:[2,2,'down'],gt:[1,3,'right',3,'parasol_lady'],e2:[12,10,'left',3],e3:[2,21,'right',3],guide:[16,20],
     tip:['This is the Gale Floor! Step on an arrow and the wind throws you that way.','You keep flying until you land on a calm yellow tile or hit a wall.'],
     pz:{type:'spin',arrows:A,stops}})}}
 {const M=OW_MAPS.a12_gym;if(M){const cans=[];for(const y of[10,12,14])for(const x of[1,3,5,7,9])cans.push([x,y]);
   const signs={};cans.forEach(([x,y],i)=>signs[x+','+y]=()=>gymCanCheck(M,i));
   const gate=[[4,6],[5,6],[6,6],[4,7],[5,7],[6,7]];
   gym2Def('a12_gym',{src:'VermilionCity_Gym',img:'vermilioncity_gym',set:gate.map(([x,y])=>[x,y,'0']),exitX:[4,5,6],exitY:19,entry:[5,18],statues:[[3,17],[7,17]],
-    leader:[5,2,'down'],gt:[7,8,'down',2],e2:[2,11,'right',3],e3:[8,13,'left',3],guide:[4,17],signs,
+    leader:[5,2,'down'],gt:[4,3,'right',3,'worker'],e2:[2,11,'right',3],e3:[8,13,'left',3],guide:[4,17],signs,
     tip:['Ohmar locked the barrier with two hidden switches!','They’re under the trash in these bins. Once you find the first, the second is always in a bin right next to it. Pick wrong and both reset!'],
     pz:{type:'cans',cans,gate}})}}
 {const M=OW_MAPS.a14_gym;if(M){const hedges=[[6,8],[5,9],[6,9],[7,9],[3,5],[1,9],[2,9],[9,6],[10,8],[11,8],[10,9],[11,9]];
   const signs={};for(const h of hedges)signs[h.join(',')]=()=>gymHedge(M,h);
   gym2Def('a14_gym',{src:'CeladonCity_Gym',img:'celadoncity_gym',exitX:[5,6,7],exitY:18,entry:[6,17],statues:[[4,16],[8,16]],
-    leader:[6,4,'down'],gt:[7,5,'down',2],e2:[3,11,'right',3],e3:[2,6,'down',2],guide:[9,17],signs,
+    leader:[6,4,'down'],gt:[5,5,'down',3,'picnicker'],e2:[3,11,'right',3],e3:[2,6,'down',2],guide:[9,17],signs,
     tip:['Welcome to the Pruning Garden!','Thick hedges block every way to Sylvie, and your partner can only cut 2 a visit. Count the hedges before you cut!'],
     pz:{type:'hedge',hedges,tree:[11,4]}})}}
 {const M=OW_MAPS.a16_gym;if(M){const pairs=[[[18,20],[20,20]],[[28,23],[0,4]],[[8,4],[20,12]],[[28,15],[8,20]],[[0,23],[28,7]],[[20,4],[0,12]],[[8,15],[12,7]],[[16,4],[18,15]],
     [[0,7],[28,20]],[[8,7],[8,23]],[[12,4],[20,23]],[[16,7],[0,20]],[[20,7],[8,12]],[[28,4],[20,15]],[[0,15],[28,12]]];
   const warps={};for(const[a,b]of pairs){warps[a.join(',')]=['a16_gym',b[0],b[1],'down'];warps[b.join(',')]=['a16_gym',a[0],a[1],'down']}
   gym2Def('a16_gym',{src:'SaffronCity_Gym',img:'saffroncity_gym',exitX:[13,14,15],exitY:23,entry:[14,22],statues:[[12,20],[16,20]],warps,
-    leader:[14,11,'down'],gt:[14,4,'down',2],e2:[4,3,'down',2],e3:[24,12,'left',3],guide:[15,20],
+    leader:[14,11,'down'],gt:[18,12,'down',3,'gentleman'],e2:[4,3,'down',2],e3:[24,12,'left',3],guide:[15,20],
     tip:['These are the Shadow Rooms: nine rooms linked by warp pads.','Each pad throws you into another room. Vesper waits in the middle one. Remember where each pad leads!'],
     pz:{type:'pads'}})}}
 
