@@ -12743,7 +12743,7 @@ function doorDraw(K,now){const D=K.door;if(!D||!owOk(K.lower))return;const kind=
   c.save();c.beginPath();c.rect(px,py,rw,rh);c.clip();
   const g=c.createLinearGradient(0,py,0,py+rh);g.addColorStop(0,'#05060a');g.addColorStop(1,'#2a221d');c.fillStyle=g;c.fillRect(px,py,rw,rh);
   if(kind==='slide'){const h=Math.floor(rw/2),s=Math.round(h*o*.92);part(sx,h,px-s,h);part(sx+h,rw-h,px+h+s,rw-h)}
-  else{const w=Math.max(1,Math.round(rw*(1-o*.8)));part(sx,rw,px,w);c.fillStyle=`rgba(0,0,0,${.4*o})`;c.fillRect(px,py,w,rh);c.fillStyle='rgba(255,236,190,.45)';c.fillRect(px+w,py+1,1,rh-1)}
+  else{const w=Math.max(1,Math.round(rw*(1-o*.8))),dx=px+rw-w;part(sx,rw,dx,w);c.fillStyle=`rgba(0,0,0,${.4*o})`;c.fillRect(dx,py,w,rh);c.fillStyle='rgba(255,236,190,.45)';c.fillRect(dx-1,py+1,1,rh-1)}
   c.restore();
   // the player steps into the open doorway
   if(owOk(K.player)&&K.py<=(D.y+1)*16)owSheet(K,K.player,K.dir,Math.floor(now/130)%2?1:0,K.px,K.py,cam)}
