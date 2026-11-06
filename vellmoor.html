@@ -11704,7 +11704,7 @@ function profQuiz(){const qs=[...QUIZ18.slice(0,-1)].sort(()=>Math.random()-.5).
       ()=>owChoose([`Take ${SP[sp].n}`,'Choose a different Pokémon','Ask me again'],c=>{
         if(c===0){owStop();pickStarter(sp)}else if(c===1){owStop();starterScreen()}else setTimeout(()=>owSay(['Thessaly: Of course. Let’s start over.'],ask0),60)}))};
   const ask0=()=>{i=0;for(const k in score)delete score[k];ask()};
-  owSay([`Thessaly: ${P().name}! You’re awake. I hope the bed here was comfortable.`,'Before you choose your first partner, I’d like to ask you a few questions.','There are no wrong answers. Just tell me what feels true.'],ask)}
+  owSay([state.labQuiz?`Thessaly: ${P().name}! There you are. Welcome to my lab.`:`Thessaly: ${P().name}! You’re awake. I hope the bed here was comfortable.`,'Before you choose your first partner, I’d like to ask you a few questions.','There are no wrong answers. Just tell me what feels true.'],ask)}
 /* start the questions as soon as you walk in */
 {const _st=owStart;owStart=function(M){const r=_st.apply(this,arguments);const K=OWK;
   if(K&&M&&M.key==='hv_center'&&state.needStarter&&!state.party.length)setTimeout(()=>{if(OWK===K&&!K.msg&&!K.choose)profQuiz()},600);return r}}
@@ -12948,6 +12948,21 @@ function shinyAnim(side){return new Promise(res=>{const fx=$('#fx');if(!fx||!$('
   if(b&&cfg&&cfg.kind==='trainer'&&!cfg.pvp&&!(typeof MPB!=='undefined'&&MPB.on)&&cfg.foes&&!cfg._bumped){cfg._bumped=true;
     cfg.foes=cfg.foes.map(f=>{const n=makeMon(f.sp,Math.min(100,f.lvl+b));for(const k of ['item','shiny','ball','nick','gender'])if(f[k]!==undefined)n[k]=f[k];return n})}}catch(e){console.warn(e)}
   return _hb(cfg)}}
+
+/* New games start at home, upstairs in your room. Mom sends you to the lab, where Thessaly gives you her questions. */
+vmStartCenter=function(){state.needStarter=false;state.labQuiz=true;state.loc=0;state.ow={map:'hv_home2',x:6,y:7,dir:'down'};OW_LASTLOC=0;OW_MENU=false;save();mapScreen();
+  setTimeout(()=>{if(OWK&&state.labQuiz&&!OWK.msg)owSay([`${P().name} woke up. Morning light fills the room.`,'Today is the day you get your first Pokémon. Professor Thessaly’s lab is in the south-east of town.'])},900)};
+{const M=OW_MAPS.hv_home;const mom=M&&M.npcs.find(n=>n.sheet==='mom');if(mom){const say=mom.say,then=mom.then;
+  mom.say=()=>state.labQuiz&&!state.party.length?[`Mom: Good morning, ${P().name}! Did you sleep well?`,'Professor Thessaly came by earlier. She’s waiting for you at her lab, south-east of town.','Go on, I know you’ve been dreaming about this day!']:say();
+  mom.then=()=>state.labQuiz&&!state.party.length?null:then&&then()}}
+{const M=OW_MAPS.hv_lab;const pr=M&&M.npcs.find(n=>n.sheet==='scientist_f'&&n.x===6&&n.y===5);if(pr){const say=pr.say,then=pr.then;
+  pr.say=()=>state.labQuiz&&!state.party.length?['Thessaly: Ready for my questions?']:say();pr.then=()=>state.labQuiz&&!state.party.length?profQuiz():then&&then()}}
+{const _st=owStart;owStart=function(M){const r=_st.apply(this,arguments);const K=OWK;
+  if(K&&M&&M.key==='hv_lab'&&state.labQuiz&&!state.party.length&&!K._quizzed){K._quizzed=true;setTimeout(()=>{if(OWK===K&&!K.msg&&!K.choose)profQuiz()},600)}return r}}
+{const _w=owWarp;owWarp=function(map,x,y,dir){if(state.labQuiz&&!state.party.length&&state.ow&&state.ow.map==='hv_lab'&&map!=='hv_lab'){const K=OWK;
+    if(K&&!K._labHint){K._labHint=true;return owSay(['Thessaly: Heading out already? Come back whenever you’re ready to pick a partner.'],()=>owWarp(map,x,y,dir))}}
+  return _w.apply(this,arguments)}}
+{const _pk=pickStarter;pickStarter=function(id){state.labQuiz=false;return _pk.apply(this,arguments)}}
 buildPixelCache().then(npcInit,npcInit).then(titleScreen,titleScreen);
 </script>
 
