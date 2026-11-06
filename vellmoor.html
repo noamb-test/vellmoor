@@ -12980,7 +12980,7 @@ function shinyAnim(side){return new Promise(res=>{const fx=$('#fx');if(!fx||!$('
 /* Hard mode: lift trainer teams to this stretch's level (outermost wrapper, before the six-Pokémon padding) */
 {const _hb=battle;battle=function(cfg){try{const b=hardBump();
   if(b&&cfg&&cfg.kind==='trainer'&&!cfg.pvp&&!(typeof MPB!=='undefined'&&MPB.on)&&cfg.foes&&!cfg._bumped){cfg._bumped=true;
-    cfg.foes=cfg.foes.map(f=>{const n=makeMon(f.sp,Math.min(100,f.lvl+b));for(const k of ['item','shiny','ball','nick','gender'])if(f[k]!==undefined)n[k]=f[k];return n})}}catch(e){console.warn(e)}
+    cfg.foes=cfg.foes.map(f=>{const n=makeMon(f.sp,Math.min(100,f.lvl+b));for(const k of ['item','shiny','ball','nick','gender'])if(f[k]!==undefined)n[k]=f[k];return n})}if(cfg&&cfg.kind==='trainer'&&!cfg.pvp&&cfg.foes&&typeof tameFoe==='function')cfg.foes=cfg.foes.map((f,i)=>tameFoe(f,((cfg.trainer&&cfg.trainer.n)||'t')+i))}catch(e){console.warn(e)}
   return _hb(cfg)}}
 
 /* New games start at home, upstairs in your room. Mom sends you to the lab, where Thessaly gives you her questions. */
@@ -13209,6 +13209,16 @@ function flyDraw(K,c,cam,now){const F=K.fly;if(!F)return;const t=(now-F.t0)/1000
         `You got the ${ROD_N[tier]}!`,'When you see the “!”, press A right away to reel it in. Too early and you’ll scare them off.'];
       return[`${who}: How are they biting? The ${ROD_N[r]} pulls up ${tier===1?'mostly Magikarp, but don’t knock it':'all sorts of things'}.`,'Patience is the real bait.']},
       then:()=>{const r=state.rod||0;if(r===tier-1){state.rod=tier;save()}}})}}
+
+/* No legendaries, mythicals, Ultra Beasts or paradox Pokémon on trainer teams until Lv 36 (sorted last so it also covers Hard mode's extra Pokémon) */
+const TRAINER_LEGEND_LV=36;
+function tameFoe(f,seed){if(!f||f.lvl>=TRAINER_LEGEND_LV||!isLegend(f.sp))return f;
+  const types=SP[f.sp].types;let pick0=null;
+  for(const t of types){const by=typedPool(t,[]),lines=Object.keys(by).filter(b=>!isLegend(b)&&!by[b].some(isLegend));if(lines.length){const b=lines[hash(seed+t)%lines.length];pick0=by[b].slice().sort((x,y)=>SP[x].stage-SP[y].stage)[0];break}}
+  if(!pick0)pick0='n019';const n=makeMon(evolveTo(pick0,f.lvl),f.lvl);for(const k of ['item','shiny','ball','gender'])if(f[k]!==undefined)n[k]=f[k];return n}
+{const _tb=battle;battle=function(cfg){const r=_tb.apply(this,arguments);return r}}
+{const _pad=typeof hardPad==='function'?hardPad:null;if(_pad)hardPad=function(foes,seed){return _pad(foes,seed).map((f,i)=>tameFoe(f,seed+'#'+i))}}
+{const _at=autoTeam;autoTeam=function(type,size,ace,seed,alt){const T=_at.apply(this,arguments);return T.map(([id,l],i)=>l<TRAINER_LEGEND_LV&&isLegend(id)?[tameFoe({sp:id,lvl:l},seed+'@'+i).sp,l]:[id,l])}}
 buildPixelCache().then(npcInit,npcInit).then(titleScreen,titleScreen);
 </script>
 
