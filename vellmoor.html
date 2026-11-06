@@ -231,6 +231,26 @@
 .title.tNew .tag{font-size:16px;max-width:36em;margin-inline:auto;opacity:.85}
 @keyframes tShine{to{background-position:-250% 0}}
 @keyframes tBlink{to{visibility:hidden}}
+
+.title[data-page] .tHero{position:fixed;inset:0;width:100vw;height:100vh;height:100dvh;max-width:none;margin:0;border-radius:0;aspect-ratio:auto;box-shadow:none;z-index:0}
+.title[data-page] .tHero canvas{object-fit:cover}
+.title[data-page]>*:not(.tHero){position:relative;z-index:1}
+.title[data-page="splash"]>*:not(.tHero){display:none!important}
+.title[data-page="splash"] .tHero{z-index:60;cursor:pointer}
+.title[data-page="splash"] .tLogo{top:16%}.title[data-page="splash"] .tLogo b{font-size:clamp(44px,13vw,110px)}.title[data-page="splash"] .tPress{bottom:12%}
+body.tSplashOn{overflow:hidden}
+.title[data-page="login"] .tHero::after,.title[data-page="saves"] .tHero::after{content:'';position:absolute;inset:0;background:linear-gradient(rgba(14,8,26,.35),rgba(14,8,26,.78))}
+.title[data-page="login"] .tLogo,.title[data-page="login"] .tPress,.title[data-page="saves"] .tLogo,.title[data-page="saves"] .tPress{display:none}
+.title[data-page="login"] .tag,.title[data-page="login"] .slots,.title[data-page="login"]>p.muted,.title[data-page="saves"] #mpBox{display:none!important}
+.title[data-page] .tHead{display:flex;flex-direction:column;align-items:center;margin:8px 0 16px}
+.title[data-page] .tHead b{font-family:'Pixelify Sans',monospace;font-weight:700;font-size:clamp(34px,10vw,64px);letter-spacing:.06em;line-height:1;background:linear-gradient(100deg,#ffd76a,#fff3c4 18%,#ffb43a 36%,#ffd76a 60%,#fff6d4 70%,#e8962a);background-size:250% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 2px 0 #5a2a10) drop-shadow(2px 0 0 #5a2a10) drop-shadow(-2px 0 0 #5a2a10) drop-shadow(0 -2px 0 #5a2a10);animation:tShine 5s linear infinite}
+.title[data-page] .tHead i{font-style:normal;font-family:'Pixelify Sans',monospace;font-size:13px;letter-spacing:.42em;color:#fff4dc;margin-top:6px}
+.title .tLoginPage{max-width:520px;margin:0 auto;padding:18px;border-radius:14px;background:rgba(20,16,34,.82);border:1px solid rgba(255,210,140,.25);backdrop-filter:blur(4px);text-align:left}
+.title .tLoginPage .mpBox{margin:10px 0 0;padding:0;border:0;background:none}.title .tLoginPage .mpBox>.label,.title .tLoginPage .mpHint{display:none}
+.title .tLoginPage .tOffline{margin-top:12px}
+.title .tAcct{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;margin:0 auto 14px;padding:8px 14px;border-radius:999px;background:rgba(20,16,34,.75);width:max-content;max-width:100%;font-size:14px}
+.title[data-page="saves"] .slots{background:rgba(20,16,34,.78);border-radius:14px;padding:14px;backdrop-filter:blur(4px)}
+.title[data-page="saves"] .tag,.title[data-page="saves"]>p.muted{text-shadow:0 1px 2px #000}
 </style><style>
 /* party screen (Platinum) */
 .ptParty,.ppSum{position:absolute;inset:0;overflow:hidden;background:#3c3c4c}
@@ -12981,7 +13001,7 @@ vmStartCenter=function(){state.needStarter=false;state.labQuiz=true;state.loc=0;
 /* ============ TITLE SCREENS ============
    Four animated title scenes drawn on a 256×192 canvas (the DS top screen). Pick one with ?title=dusk|night|flyover|spotlight,
    or set TITLE_DEFAULT. 'classic' keeps the old crest. */
-const TITLE_DEFAULT='classic',TITLE_LIST=['dusk','night','flyover','spotlight'];
+const TITLE_DEFAULT='dusk',TITLE_LIST=['dusk','night','flyover','spotlight'];
 function titleStyle(){let q=null;try{q=new URLSearchParams(location.search).get('title')}catch(e){}if(q&&(TITLE_LIST.includes(q)||q==='classic'))return q;return TITLE_DEFAULT}
 const TIMG={};function timg(src){if(!TIMG[src]){const i=new Image();i.src=src;TIMG[src]=i}return TIMG[src]}
 const tOk=i=>i&&i.complete&&i.naturalWidth>0;
@@ -12993,25 +13013,25 @@ function tHills(c,pts,off,col,W=256,H=192,step=8){const n=pts.length-1,span=n*st
 const TSCENES={
  dusk:{init(){const r=tRand(7);return{far:tRidge(11,118,10,48),mid:tRidge(23,138,14,40),near:tRidge(37,160,10,36),
    clouds:Array.from({length:7},()=>({x:r()*300,y:18+r()*70,w:30+r()*60,s:2+r()*5})),birds:[],nb:0,petals:Array.from({length:18},()=>({x:r()*256,y:r()*192,v:6+r()*10,p:r()*6}))}},
-  draw(c,S,t,dt){const g=c.createLinearGradient(0,0,0,150);g.addColorStop(0,'#241540');g.addColorStop(.45,'#7a2c5c');g.addColorStop(.75,'#e0604a');g.addColorStop(1,'#ffb35c');c.fillStyle=g;c.fillRect(0,0,256,192);
+  draw(c,S,t,dt){const W=c.canvas.width,sx=Math.min(86,W*.3);const g=c.createLinearGradient(0,0,0,150);g.addColorStop(0,'#241540');g.addColorStop(.45,'#7a2c5c');g.addColorStop(.75,'#e0604a');g.addColorStop(1,'#ffb35c');c.fillStyle=g;c.fillRect(0,0,W,192);
    // sun with banded glow
-   for(let k=5;k>=0;k--){c.fillStyle=`rgba(255,${200-k*12},${120-k*10},${.08+.02*(5-k)})`;c.beginPath();c.arc(84,118,22+k*9,0,7);c.fill()}
-   c.fillStyle='#ffe08a';c.beginPath();c.arc(84,118,20,0,7);c.fill();c.fillStyle='rgba(255,170,90,.7)';for(let y=106;y<138;y+=5)c.fillRect(60,y+((t/400)%5),48,1);
-   for(const k of S.clouds){k.x-=k.s*dt;if(k.x<-k.w)k.x=256+Math.random()*40;c.fillStyle='rgba(255,190,170,.35)';c.fillRect(Math.round(k.x),Math.round(k.y),Math.round(k.w),3);c.fillStyle='rgba(120,40,90,.35)';c.fillRect(Math.round(k.x+6),Math.round(k.y+3),Math.round(k.w-12),2)}
-   tHills(c,S.far,t*.004,'#6a3058');tHills(c,S.mid,t*.01,'#40203e');
+   for(let k=5;k>=0;k--){c.fillStyle=`rgba(255,${200-k*12},${120-k*10},${.08+.02*(5-k)})`;c.beginPath();c.arc(sx,118,22+k*9,0,7);c.fill()}
+   c.fillStyle='#ffe08a';c.beginPath();c.arc(sx,118,20,0,7);c.fill();c.fillStyle='rgba(255,170,90,.7)';for(let y=106;y<138;y+=5)c.fillRect(sx-24,y+((t/400)%5),48,1);
+   for(const k of S.clouds){k.x-=k.s*dt;if(k.x<-k.w)k.x=W+Math.random()*40;c.fillStyle='rgba(255,190,170,.35)';c.fillRect(Math.round(k.x),Math.round(k.y),Math.round(k.w),3);c.fillStyle='rgba(120,40,90,.35)';c.fillRect(Math.round(k.x+6),Math.round(k.y+3),Math.round(k.w-12),2)}
+   tHills(c,S.far,t*.004,'#6a3058',W);tHills(c,S.mid,t*.01,'#40203e',W);
    // the bell tower of Skyreach
-   c.fillStyle='#1c1026';const bx=200;c.fillRect(bx-7,74,14,100);
+   c.fillStyle='#1c1026';const bx=Math.round(W-Math.max(40,W*.22));c.fillRect(bx-7,74,14,100);
    for(const[y,w]of[[74,30],[100,26],[124,22]]){c.beginPath();c.moveTo(bx-w/2-4,y+4);c.lineTo(bx,y-10);c.lineTo(bx+w/2+4,y+4);c.closePath();c.fill();c.fillRect(bx-w/2,y+4,w,4)}
    c.beginPath();c.moveTo(bx-1,52);c.lineTo(bx+1,52);c.lineTo(bx+1,64);c.lineTo(bx-1,64);c.fill();
    const sw=Math.sin(t/700)*.35;c.save();c.translate(bx,82);c.rotate(sw);c.fillStyle='#ffcf6a';c.beginPath();c.moveTo(-4,0);c.lineTo(4,0);c.lineTo(6,9);c.lineTo(-6,9);c.closePath();c.fill();c.fillStyle='#b07030';c.fillRect(-1,9,2,2);c.restore();
    c.fillStyle='rgba(255,210,120,.9)';c.fillRect(bx-4,108,2,5);c.fillRect(bx+2,108,2,5);
-   tHills(c,S.near,t*.022,'#1a1022');
-   c.fillStyle='#120a18';for(let x=0;x<256;x+=6){const h=2+((x*7)%5);c.fillRect(x,178-h+Math.round(Math.sin(t/500+x)*1),1,h)}
-   c.fillRect(0,178,256,14);
+   tHills(c,S.near,t*.022,'#1a1022',W);
+   c.fillStyle='#120a18';for(let x=0;x<W;x+=6){const h=2+((x*7)%5);c.fillRect(x,178-h+Math.round(Math.sin(t/500+x)*1),1,h)}
+   c.fillRect(0,178,W,14);
    // birds crossing the sun
    if(t>S.nb){S.nb=t+5000+Math.random()*4000;const y=40+Math.random()*50;for(let i=0;i<5;i++)S.birds.push({x:-10-i*9-(i%2)*4,y:y+(i%2?6:0)+i*2,v:24+Math.random()*3,p:Math.random()*6})}
-   c.strokeStyle='#22122a';c.lineWidth=1;S.birds=S.birds.filter(b=>{b.x+=b.v*dt;const f=Math.sin(t/90+b.p)>0?2:-1;c.beginPath();c.moveTo(b.x-4,b.y+f);c.lineTo(b.x,b.y);c.lineTo(b.x+4,b.y+f);c.stroke();return b.x<270});
-   c.fillStyle='rgba(255,190,200,.8)';for(const q of S.petals){q.y+=q.v*dt*.6;q.x-=q.v*dt;if(q.y>192||q.x<0){q.y=-4;q.x=Math.random()*300}c.fillRect(Math.round(q.x),Math.round(q.y),1+(Math.sin(t/200+q.p)>0),1)}}},
+   c.strokeStyle='#22122a';c.lineWidth=1;S.birds=S.birds.filter(b=>{b.x+=b.v*dt;const f=Math.sin(t/90+b.p)>0?2:-1;c.beginPath();c.moveTo(b.x-4,b.y+f);c.lineTo(b.x,b.y);c.lineTo(b.x+4,b.y+f);c.stroke();return b.x<W+14});
+   c.fillStyle='rgba(255,190,200,.8)';for(const q of S.petals){q.y+=q.v*dt*.6;q.x-=q.v*dt;if(q.y>192||q.x<0){q.y=-4;q.x=Math.random()*(W+40)}c.fillRect(Math.round(q.x),Math.round(q.y),1+(Math.sin(t/200+q.p)>0),1)}}},
  night:{init(){const r=tRand(3);return{stars:Array.from({length:110},()=>({x:r()*256,y:r()*130,p:r()*7,b:r()})),hill:tRidge(5,150,8,40),far:tRidge(9,138,12,40),
    fog:Array.from({length:6},()=>({x:r()*256,y:140+r()*30,w:70+r()*80,s:3+r()*5})),ff:Array.from({length:16},()=>({x:r()*256,y:120+r()*60,a:r()*7,s:.5+r()})),shoot:null,ns:2500,
    mon:['n025','n133','n004','n007','n001','n393','n258','n155'][Math.floor(Math.random()*8)]}},
@@ -13055,11 +13075,30 @@ const TSCENES={
 };
 function titleHero(style){const host=document.createElement('div');host.className='tHero t-'+style;
   host.innerHTML=`<canvas width="256" height="192"></canvas><div class="tLogo"><b>VELLMOOR</b><i>THE SILENT BELLS</i></div><div class="tPress">TAP TO START</div>`;
-  const cv=host.querySelector('canvas'),c=cv.getContext('2d');c.imageSmoothingEnabled=false;const Sc=TSCENES[style],S=Sc.init();let last=performance.now(),t0=last;
+  const cv=host.querySelector('canvas'),c=cv.getContext('2d');c.imageSmoothingEnabled=false;if(style==='dusk'){const fit=()=>{const r=host.getBoundingClientRect();if(r.width&&r.height){const w=Math.max(150,Math.min(400,Math.round(192*r.width/r.height)));if(cv.width!==w){cv.width=w;c.imageSmoothingEnabled=false}}};requestAnimationFrame(fit);addEventListener('resize',fit)}const Sc=TSCENES[style],S=Sc.init();let last=performance.now(),t0=last;
   const loop=now=>{if(!cv.isConnected)return;const dt=Math.min(.1,(now-last)/1000);last=now;try{Sc.draw(c,S,now-t0,dt)}catch(e){console.warn(e)}requestAnimationFrame(loop)};requestAnimationFrame(loop);
   host.onclick=()=>{const s=document.querySelector('.title .slots');if(s)s.scrollIntoView({behavior:'smooth',block:'start'})};return host}
 {const _tsc=titleScreen;titleScreen=function(){const r=_tsc.apply(this,arguments);const st=titleStyle();if(st!=='classic'&&TSCENES[st]){const T=document.querySelector('.title');
     if(T){const cr=T.querySelector('.crest'),h=T.querySelector('h1');const hero=titleHero(st);if(cr)cr.replaceWith(hero);else T.prepend(hero);if(h)h.remove();T.classList.add('tNew')}}return r}}
+
+/* Title flow: a full-screen splash on first load → log in (or play offline) → save files. The dusk scene keeps playing behind each page. */
+let TPAGE='splash';
+function tGo(pg){TPAGE=pg;titleScreen();window.scrollTo(0,0)}
+{const _tf=titleScreen;titleScreen=function(){if(TPAGE==='login'&&MP&&(MP.user||MP.ok===false))TPAGE='saves';
+  const r=_tf.apply(this,arguments);const T=document.querySelector('.title');if(!T)return r;T.dataset.page=TPAGE;document.body.classList.toggle('tSplashOn',TPAGE==='splash');
+  const hero=T.querySelector('.tHero');
+  if(TPAGE==='splash'){if(hero){hero.onclick=()=>tGo(MP&&MP.ok!==false&&!MP.user?'login':'saves');const k=e=>{if(!hero.isConnected){removeEventListener('keydown',k);return}if(['Enter',' ','z','Z'].includes(e.key)){e.preventDefault();removeEventListener('keydown',k);hero.onclick()}};addEventListener('keydown',k)}return r}
+  if(hero)hero.onclick=null;
+  const head=document.createElement('div');head.className='tHead';head.innerHTML=`<b>VELLMOOR</b><i>THE SILENT BELLS</i>`;T.prepend(head);
+  if(TPAGE==='login'){const box=document.createElement('div');box.className='tLoginPage';
+    box.innerHTML=`<p class="label">Trainer login</p><p class="muted">Log in or make an account to see other trainers in the world, battle them, and keep your saves on any device.</p><div class="tLoginSlot"></div><button class="btn full tOffline" id="tOff">Play offline</button>`;
+    T.insertBefore(box,T.querySelector('.slots'));const place=()=>{const b=document.getElementById('mpBox');if(b&&!box.contains(b))box.querySelector('.tLoginSlot').appendChild(b)};place();
+    const mo=new MutationObserver(place);mo.observe(T,{childList:true});box.querySelector('#tOff').onclick=()=>{mo.disconnect();tGo('saves')}}
+  else{const bar=document.createElement('div');bar.className='tAcct';
+    const draw=()=>{bar.innerHTML=MP&&MP.user?`<span class="mpDot"></span><span>Signed in as <b>${mpEsc(MP.name||'')}</b></span><button class="btn" id="tOut">Log out</button>`:`<span>Playing offline.</span>${MP&&MP.ok!==false?'<button class="btn" id="tIn">Log in</button>':''}`;
+      const o=bar.querySelector('#tOut'),i=bar.querySelector('#tIn');if(o)o.onclick=()=>{TPAGE='login';mpLogout()};if(i)i.onclick=()=>tGo('login')};draw();
+    T.insertBefore(bar,T.querySelector('.slots'));}
+  return r}}
 buildPixelCache().then(npcInit,npcInit).then(titleScreen,titleScreen);
 </script>
 
