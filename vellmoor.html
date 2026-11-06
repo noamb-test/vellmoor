@@ -190,6 +190,27 @@
 .hgText{white-space:normal;word-spacing:0}
 .hgUp,.hgDn{font-family:system-ui,sans-serif;text-shadow:none}
 
+
+.rb .menu .tgGrid{grid-column:1/-1!important;width:100%;display:flex;flex-direction:column;gap:8px;margin:4px 0 8px}
+.rb .menu .tgRow{display:flex;gap:8px}
+.rb .menu .tgBox{flex:1 1 0;min-width:0;display:grid;grid-template-columns:auto 1fr auto;grid-template-rows:auto auto auto;align-items:center;column-gap:4px;padding:6px 8px 7px;border-radius:12px;
+  font-family:var(--frs,'Pixelify Sans'),monospace;font-size:15px;color:#283038;text-align:left;cursor:pointer;border:3px solid;box-shadow:inset 0 -4px 0 rgba(0,0,0,.12),0 2px 0 rgba(0,0,0,.25);transition:transform .08s}
+.rb .menu .tgBox.foe{background:linear-gradient(#ffe2dc,#f6b3a6);border-color:#c8584a}
+.rb .menu .tgBox.ally{background:linear-gradient(#dcecff,#a8c8f4);border-color:#4a6ec8}
+.rb .menu .tgBox .ptMon{grid-row:1/3;width:32px;height:32px;background-size:32px 64px;image-rendering:pixelated}
+.rb .menu .tgBox .tgN,.rb .menu .tgBox .tgL{display:block!important;color:inherit!important;visibility:visible!important}
+.rb .menu .tgBox .tgN{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rb .menu .tgBox .tgL{font-size:13px;opacity:.75}
+.rb .menu .tgBox .tgHp{grid-column:2/4;height:6px;background:#384048;border:1px solid #20262c;border-radius:3px;overflow:hidden}
+.rb .menu .tgBox .tgHp i{display:block;height:100%}
+.rb .menu .tgBox em{grid-column:1/4;font-style:normal;font-size:12px;margin-top:2px}
+.rb .menu .tgBox em.vul{color:#b02818}.rb .menu .tgBox em.res{color:#506070}
+.rb .menu .tgBox.lit,.rb .menu .tgBox.hov{border-color:#f8c830;box-shadow:0 0 0 2px #fff6c0,0 0 10px #f8c830,inset 0 -4px 0 rgba(0,0,0,.12)}
+.rb .menu .tgBox:not([disabled]):active{transform:translateY(2px)}
+.rb .menu .tgBox[disabled]{background:linear-gradient(#e4e6e8,#c4c8cc);border-color:#8a9096;color:#7a8088;cursor:default;box-shadow:none}
+.rb .menu .tgBox[disabled] .ptMon{filter:grayscale(1) opacity(.6)}
+.rb .menu .tgBox.empty{visibility:hidden}
+.rb .meArt.tgt{filter:drop-shadow(0 0 6px #4a8ef0) drop-shadow(0 0 2px #4a8ef0)}
 </style><style>
 /* party screen (Platinum) */
 .ptParty,.ppSum{position:absolute;inset:0;overflow:hidden;background:#3c3c4c}
@@ -9168,12 +9189,7 @@ function setMenu(kind){
     m.innerHTML=rows.join('')+`<p class="hint">Catching is easier when the target is hurt or has a status condition. You roll with advantage if it is asleep or frozen.</p><button class="btn full" data-back>Back</button>`;
     m.querySelectorAll('[data-item]').forEach(b=>b.onclick=()=>{const k=b.dataset.item;if(k==='revivify'){if(nuzOn()){L('Nuzlocke rule: fainted Pokémon can’t be revived.','bad');return}return setMenu('revive')}if(k==='rune'||k==='grune'||k==='mrune'||k==='uball')return act({kind:'rune',item:k});act({kind:'item',item:k})});
   }else if(kind==='target'){
-    const mv=MV[B.pend];
-    m.innerHTML=`<p class="hint">Use ${mv.n} on which Pokémon?</p>`+B.actF.map((fi,s)=>{const f=B.foes[fi];if(!f||f.hp<=0)return'';const e=mv.k==='atk'?eff(mv.t,SP[f.sp].types):1;
-      return`<button class="mv" data-t="${s}"><span class="row" style="gap:6px"><b>${nm(f)}</b>${chips(SP[f.sp].types)}</span><small>Lv ${f.lvl} · HP ${Math.round(Math.max(0,f.hp)/stats(f).maxhp*100)}%${mv.k==='atk'?` · ~${calcDamage(P,f,B.pend,{rand:false}).dmg} dmg`:''}</small>${mv.k==='atk'?(e===0?'<span class="tag res">No effect</span>':e>1?'<span class="tag vul">Super effective</span>':e<1?'<span class="tag res">Not very effective</span>':''):''}</button>`}).join('')+`<button class="btn full" id="tgtBack">Back</button>`;
-    m.querySelectorAll('[data-t]').forEach(b=>{b.onclick=()=>act({kind:'move',id:B.pend,target:+b.dataset.t});
-      b.onmouseenter=b.onfocus=()=>{document.querySelectorAll('.foeArt.mslotArt').forEach(x=>x.classList.toggle('tgt',x.dataset.fs===b.dataset.t))}});
-    $('#tgtBack').onclick=()=>setMenu('fight');
+    tgtMenu(m,P);
   }else if(kind==='revive'){
     m.innerHTML=state.party.map((x,i)=>x.hp<=0?`<button class="mv" data-i="${i}"><b>${nm(x)}</b><small>Lv ${x.lvl} · fallen</small></button>`:'').join('')+`<button class="btn full" data-back>Back</button>`;
     m.querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>act({kind:'item',item:'revivify',target:+b.dataset.i}));
@@ -9333,8 +9349,30 @@ function clearSt(){state.party.forEach(m=>m.st={});state.stable.forEach(m=>m.st=
    battle({...,pn:1,fn:5,horde:true}) = horde battle (1 of yours vs 5 wild)
    Each of your active Pokémon picks an action and a target. Spread moves (Surf, Earthquake, Rock Slide…)
    hit every opponent at 75% power. In hordes you can only throw a ball once a single Pokémon is left. */
-const SPREAD=new Set(['surf','earthquake','heatwave','discharge','hypervoice','rockslide','icywind','dazzlinggleam','blizzard','bulldoze','snarl','muddywater','sludgewave','lavaplume','petalblizzard','boomburst','eruption','waterspout','razorleaf','acid','powdersnow','twister','swift','breakingswipe','disarmingvoice','fairywind'].filter(id=>MV[id]));
+const SPREAD=new Set(['surf','earthquake','heatwave','discharge','hypervoice','rockslide','icywind','dazzlinggleam','blizzard','bulldoze','snarl','muddywater','sludgewave','lavaplume','petalblizzard','boomburst','eruption','waterspout','razorleaf','acid','powdersnow','twister','swift','breakingswipe','disarmingvoice','fairywind']);
+/* Who a move hits in a double/horde battle, as in the games:
+   SPREAD = every opponent next to the user · ADJ_ALL = every Pokémon next to the user, its own partner included · STATUS_SPREAD = status moves that hit all opponents */
+const ADJ_ALL=new Set(['earthquake','magnitude','surf','discharge','bulldoze','lavaplume','sludgewave','petalblizzard','boomburst','explosion','selfdestruct','searingshot','mindblown','sparklingaria','synchronoise']);
+const STATUS_SPREAD=new Set(['growl','leer','tailwhip','stringshot','sweetscent','poisongas','cottonspore','venomdrench','nobleroar']);
+['aircutter','bubble','electroweb','strugglebug','glaciate','originpulse','precipiceblades','diamondstorm','overdrive','makeitrain','bleakwindstorm','sandsearstorm','springtidestorm','wildboltstorm','esperwing','clangingscales','coreenforcer','dragonenergy'].forEach(id=>SPREAD.add(id));
+SPREAD.delete('fairywind');for(const id of ADJ_ALL)SPREAD.add(id);for(const id of STATUS_SPREAD)SPREAD.add(id);
 const isSpread=id=>SPREAD.has(id);
+function needTarget(id){const mv=MV[id];if(!mv||mv.k==='buff'||mv.weather)return false;const f=livingF(),al=livingP().filter(s=>s!==B.ps);
+  if(isSpread(id))return f.length+(ADJ_ALL.has(id)&&mv.k==='atk'?al.length:0)>1;return f.length>1||(mv.k==='atk'&&al.length>0)}
+/* run one hit against the user's own partner: the partner's sprite stands in as "the other side" so every effect lands on it */
+async function asAlly(side,slot,fn){const id=side==='p'?'foeArt':'meArt',el=document.querySelector(side==='p'?`.meArt[data-ps="${slot}"]`:`.foeArt[data-fs="${slot}"]`),cur=document.getElementById(id);
+  if(cur)cur.removeAttribute('id');if(el)el.id=id;try{await fn()}finally{if(el){if(el.id===id)el.removeAttribute('id');el.classList.remove('acting');el.classList.toggle('f',side==='p')}focusSlot(B.ps,B.fs)}}
+/* target select, laid out like the DS touch screen: opponents on top, your side below */
+function tgtMenu(m,P){const id=B.pend,mv=MV[id],spread=isSpread(id),adj=ADJ_ALL.has(id)&&mv.k==='atk',allyOK=mv.k==='atk'&&!spread;
+  const box=(mon,side,slot)=>{if(!mon)return'<div class="tgBox empty"></div>';const self=side==='p'&&slot===B.ps,alive=mon.hp>0;
+    const on=alive&&!self&&(side==='f'||(spread?adj:allyOK)),e=mv.k==='atk'&&on?eff(mv.t,SP[mon.sp].types):1,hp=Math.max(0,mon.hp)/stats(mon).maxhp;
+    return`<button class="tgBox ${side==='f'?'foe':'ally'} ${spread&&on?'lit':''} ${self?'self':''}" ${on?'':'disabled'} data-t="${side==='f'?slot:100+slot}" data-side="${side}" data-slot="${slot}">${ptMonIcon(mon)}<span class="tgN">${nm(mon)}${gsym(mon)}</span><span class="tgL">Lv${mon.lvl}</span><span class="tgHp"><i style="width:${Math.round(hp*100)}%;background:${hp>.5?'#38c868':hp>.2?'#f0b828':'#e84838'}"></i></span>${on&&mv.k==='atk'?(e===0?'<em class="res">No effect</em>':e>1?'<em class="vul">Super effective</em>':e<1?'<em class="res">Not very effective</em>':''):''}</button>`};
+  m.innerHTML=`<p class="hint">${spread?`${mv.n} hits every highlighted Pokémon.`:`Use ${mv.n} on which Pokémon?`}</p><div class="tgGrid"><div class="tgRow foes">${B.actF.map((fi,s)=>box(B.foes[fi],'f',s)).join('')}</div><div class="tgRow mine">${B.actP.map((pi,s)=>box(state.party[pi],'p',s)).join('')}</div></div><button class="btn full" id="tgtBack">Cancel</button>`;
+  const art=b=>document.querySelector(b.dataset.side==='f'?`.foeArt[data-fs="${b.dataset.slot}"]`:`.meArt[data-ps="${b.dataset.slot}"]`);
+  const hl=b=>{document.querySelectorAll('.mslotArt.tgt').forEach(x=>x.classList.remove('tgt'));m.querySelectorAll('.tgBox.hov').forEach(x=>x.classList.remove('hov'));if(!b)return;
+    for(const g of spread?m.querySelectorAll('.tgBox.lit'):[b]){g.classList.add('hov');const a=art(g);if(a)a.classList.add('tgt')}};
+  m.querySelectorAll('.tgBox:not([disabled])').forEach(b=>{b.onclick=()=>{hl(null);act({kind:'move',id,target:+b.dataset.t})};b.onmouseenter=b.onfocus=()=>hl(b)});
+  if(spread)hl(m.querySelector('.tgBox.lit'));$('#tgtBack').onclick=()=>{hl(null);setMenu('fight')}}
 function livingP(){return B.actP.map((i,s)=>i>=0&&state.party[i]&&state.party[i].hp>0?s:-1).filter(s=>s>=0)}
 function livingF(){return B.actF.map((i,s)=>i>=0&&B.foes[i]&&B.foes[i].hp>0?s:-1).filter(s=>s>=0)}
 function focusSlot(ps,fs){if(!B||!B.multi)return;
@@ -9392,7 +9430,7 @@ async function actMulti(a){
     if(r===20||r+bonus>=10||livingP().some(s=>abil(state.party[B.actP[s]])==='runaway')){L(`You got away safely. <span class="r">d20 ${r}${bonus>=0?'+':''}${bonus} vs DC 10</span>`);return endBattle('fled')}
     L(`Couldn't escape! <span class="r">d20 ${r}${bonus>=0?'+':''}${bonus} vs DC 10</span>`,'bad');B.plan=[];return resolveRound()}
   if(a.kind==='move'){const mv=MV[a.id],f=livingF();
-    if(a.target===undefined&&mv.k!=='buff'&&!isSpread(a.id)&&f.length>1){B.pend=a.id;return setMenu('target')}
+    if(a.target===undefined&&needTarget(a.id)){B.pend=a.id;return setMenu('target')}
     B.plan[B.ps]={kind:'move',id:a.id,target:a.target!==undefined?a.target:f[0]}}
   else if(a.kind==='switch')B.plan[B.ps]={kind:'switch',idx:a.idx};
   else if(a.kind==='item')B.plan[B.ps]={kind:'item',item:a.item,target:a.target};
@@ -9415,15 +9453,21 @@ async function resolveRound(){
     if(x.kind==='item'){if((state.items[x.item]||0)<1){L(`You’re out of ${ITEMS[x.item].n}.`,'sys');continue}focusSlot(x.slot,null);const t=x.item==='revivify'?state.party[x.target]:m;
       if(x.item==='revivify'&&t.hp>0){L(`${nm(t)} doesn’t need reviving.`,'sys');continue}L(applyItem(x.item,t),'good');updateCombatants(false);save();await sleep(300);continue}
     if(x.kind==='rune'){if((state.items[x.item]||0)<1)continue;const lf=livingF();if(lf.length!==1){L('There are too many Pokémon to aim at!','sys');continue}focusSlot(x.slot,lf[0]);if(await throwRune(x.item))return;continue}
-    const opp=x.side==='p'?livingF():livingP();if(!opp.length)continue;
+    const opp=x.side==='p'?livingF():livingP(),allyS=(x.side==='p'?livingP():livingF()).filter(s=>s!==x.slot);
+    if(x.target>=100&&MV[x.id].k==='atk'&&!isSpread(x.id)&&allyS.includes(x.target-100)){const as=x.target-100,al=x.side==='p'?state.party[B.actP[as]]:B.foes[B.actF[as]];
+      if(x.side==='p')focusSlot(x.slot,null);else focusSlot(null,x.slot);B.spread=false;B.didMove=false;await asAlly(x.side,as,()=>turn(m,al,x.id,x.side));B.movedSet.add(m);if(await faintsMulti())return;continue}
+    if(!opp.length)continue;
     let t=x.target;if(!opp.includes(t))t=pick(opp);
-    const spread=isSpread(x.id)&&opp.length>1&&MV[x.id].k==='atk';
+    const hitsAlly=ADJ_ALL.has(x.id)&&allyS.length>0&&MV[x.id].k==='atk';
+    const spread=isSpread(x.id)&&(opp.length+(hitsAlly?allyS.length:0))>1&&(MV[x.id].k==='atk'||STATUS_SPREAD.has(x.id));
     if(x.side==='p')focusSlot(x.slot,t);else focusSlot(t,x.slot);
     if(x.qc)L(`${nm(m)}’s Quick Claw let it move first!`,'sys');
     const def=x.side==='p'?fm():pm();B.spread=spread;B.didMove=false;
     await turn(m,def,x.id,x.side);
     if(spread&&B.didMove&&m.hp>0){B.spreadExtra=true;
       for(const o of opp){if(o===t)continue;if(x.side==='p')focusSlot(x.slot,o);else focusSlot(o,x.slot);const d2=x.side==='p'?fm():pm();if(d2.hp>0&&m.hp>0){L(`It also hits <b>${nm(d2)}</b>!`,'sys');await doMove(m,d2,x.id,x.side)}}
+      if(hitsAlly)for(const as of allyS){const al=x.side==='p'?state.party[B.actP[as]]:B.foes[B.actF[as]];if(!al||al.hp<=0||m.hp<=0)continue;
+        if(x.side==='p')focusSlot(x.slot,t);else focusSlot(t,x.slot);L(`It hits its partner <b>${nm(al)}</b> too!`,'sys');await asAlly(x.side,as,()=>doMove(m,al,x.id,x.side))}
       B.spreadExtra=false}
     B.spread=false;B.movedSet.add(m);
     if(await faintsMulti())return;
