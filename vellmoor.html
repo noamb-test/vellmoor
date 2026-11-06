@@ -9887,8 +9887,12 @@ function pickStarter(id){
 let CH={hard:false,nuz:false};
 const nuzOn=()=>!!(state&&state.nuz&&!state.nuz.over&&!state.nuz.off);
 const isMine=m=>!!state&&(state.party.includes(m)||state.stable.includes(m));
-function levelCap(){if(!state||!state.hard)return 100;const i=(state.badges||[]).findIndex(b=>!b);if(i>=0)return GYMS[i].ace;
-  if(!state.champion)return Math.max(...E4.flatMap(e=>e.team.map(t=>t[1])));return 100}
+/* Hard mode raises every opponent's level by a set amount for each stretch of the game (uneven on purpose, about +7 on average) */
+const HARD_BUMP=[4,6,5,8,7,9,8,9],HARD_BUMP_E4=9;
+function hardBump(){if(!state||!state.hard)return 0;
+  const i=(state.badges||[]).findIndex(b=>!b);return i>=0?HARD_BUMP[i]:HARD_BUMP_E4}
+function levelCap(){if(!state||!state.hard)return 100;const i=(state.badges||[]).findIndex(b=>!b);if(i>=0)return GYMS[i].ace+HARD_BUMP[i];
+  if(!state.champion)return Math.max(...E4.flatMap(e=>e.team.map(t=>t[1])))+HARD_BUMP_E4;return 100}
 function capWho(){const i=(state.badges||[]).findIndex(b=>!b);if(i>=0)return`Leader ${GYMS[i].leader}`;return state.champion?'':'the Elite Four'}
 /* ---- Hard mode: level caps ---- */
 const _gainXP=gainXP;
@@ -9981,7 +9985,7 @@ areaDexHTML=function(i){const h=_areaDexHTML(i);if(!nuzOn()||!h)return h;const e
   return`<p class="nzArea ${e?'used':''}"><b>Nuzlocke</b> · ${t}</p>`+h};
 const _gymCard=gymCard;
 gymCard=function(){const h=_gymCard();if(!h||!state.hard)return h;const i=gymAt(state.loc),g=GYMS[i];
-  return h.replace(`<p class="label">Gym ${i+1} of 8`,`<p class="label" style="color:#ffb0a0">Hard · Level cap Lv ${g.ace} · 6 Pokémon</p><p class="label">Gym ${i+1} of 8`)};
+  return h.replace(`Leader’s ace is level ${g.ace}.`,`Leader’s ace is level ${g.ace+HARD_BUMP[i]}.`).replace(`<p class="label">Gym ${i+1} of 8`,`<p class="label" style="color:#ffb0a0">Hard · Leader’s ace Lv ${g.ace+HARD_BUMP[i]} · 6 Pokémon</p><p class="label">Gym ${i+1} of 8`)};
 const _mapScreen=mapScreen;
 mapScreen=function(){if(state&&state.nuz&&state.nuz.news){flash=(flash?flash+' ':'')+state.nuz.news;state.nuz.news='';save()}
   if(nuzOn()&&!state.party.some(m=>m.hp>0)&&!state.stable.some(m=>m.hp>0)&&(state.party.length||(state.nuz.grave||[]).length))return nuzOver();return _mapScreen()};
@@ -12888,6 +12892,12 @@ function shinyAnim(side){return new Promise(res=>{const fx=$('#fx');if(!fx||!$('
     if(f<50||ps.some(p=>!p.dead))requestAnimationFrame(tick);else{cv.remove();res()}}
   requestAnimationFrame(tick)})}
 {const _so=sendOut;sendOut=async function(side){await _so.apply(this,arguments);try{const m=side==='p'?pm():fm();if(m&&m.shiny&&B&&!B.ended)await shinyAnim(side)}catch(e){}}}
+
+/* Hard mode: lift trainer teams to this stretch's level (outermost wrapper, before the six-Pokémon padding) */
+{const _hb=battle;battle=function(cfg){try{const b=hardBump();
+  if(b&&cfg&&cfg.kind==='trainer'&&!cfg.pvp&&!(typeof MPB!=='undefined'&&MPB.on)&&cfg.foes&&!cfg._bumped){cfg._bumped=true;
+    cfg.foes=cfg.foes.map(f=>{const n=makeMon(f.sp,Math.min(100,f.lvl+b));for(const k of ['item','shiny','ball','nick','gender'])if(f[k]!==undefined)n[k]=f[k];return n})}}catch(e){console.warn(e)}
+  return _hb(cfg)}}
 buildPixelCache().then(npcInit,npcInit).then(titleScreen,titleScreen);
 </script>
 
