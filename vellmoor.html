@@ -13099,6 +13099,21 @@ function tGo(pg){TPAGE=pg;titleScreen();window.scrollTo(0,0)}
       const o=bar.querySelector('#tOut'),i=bar.querySelector('#tIn');if(o)o.onclick=()=>{TPAGE='login';mpLogout()};if(i)i.onclick=()=>tGo('login')};draw();
     T.insertBefore(bar,T.querySelector('.slots'));}
   return r}}
+
+/* Your house, redesigned: the kitchen and dining room open into a family room with Mom's Pokémon and your little sister Lily */
+{const M=OW_MAPS.hv_home;if(M){Object.assign(M,{w:21,h:13,img:'vm_home_1f',coll:["111111111111111111111", "111111111111111111111", "111111111111111111111", "111001111111101110011", "111000010000011100011", "100000011001000000011", "100000000000000000011", "100000011000000000011", "100000011000000000011", "110000000001000000111", "110000000001000000111", "111111111111111111111", "011111111111111111111"]});M.grass=M.coll.map(r=>'0'.repeat(r.length));
+  const sib=()=>P().gender==='female'?'sister':'brother',lead=()=>state.party[0]?nm(state.party[0]):'your Pokémon',nb=()=>(state.badges||[]).filter(Boolean).length;
+  M.npcs.push(
+   {id:'home_lily',sheet:'twin',x:14,y:7,dir:'down',wander:true,say:()=>{
+     if(!state.party.length)return['Lily: You’re getting your first Pokémon TODAY?! That’s so not fair. I’ve been waiting forever!','Mom says I can go on a journey when I’m ten. Togepi and I are practicing every day.','Professor Thessaly’s lab is in the south-east of town. Go go go!'];
+     if(state.champion)return[`Lily: My big ${sib()} is the Champion! I tell everyone at school.`,`Can ${lead()} and Togepi play for a while? Please?`];
+     const b=nb();if(!b)return[`Lily: Is that ${lead()}? It’s SO cute! Can I pet it?`,'…','It likes me! Togepi, say hi!','When you win a badge, come show me, okay?'];
+     if(b<8)return[`Lily: You have ${b} badge${b>1?'s':''} now! I drew pictures of ${b>1?'all of them':'it'} and stuck them on my wall.`,b>=4?'Mom keeps your room clean for when you visit. She says she doesn’t, but she does.':'Togepi keeps trying to hatch again. I don’t think that’s how it works.'];
+     return[`Lily: All eight badges?! You’re going to the Elite Four, aren’t you?`,`Don’t lose, okay? I’ll be cheering for you and ${lead()}.`]}},
+   {id:'home_chansey',mon:113,x:10,y:4,dir:'down',say:()=>['Chansey: Chaaan-sey! ♪','Mom’s Chansey is humming while it stirs a pot of soup.',...(state.party.length?[`It gives ${lead()} a little pat on the head.`]:[])]},
+   {id:'home_furret',mon:162,x:18,y:6,dir:'left',say:()=>['Furret: Fuu… fuu…','Mom’s Furret is curled up asleep in its bed. Its tail twitches as it dreams.']},
+   {id:'home_togepi',mon:175,x:16,y:8,dir:'down',wander:true,say:()=>['Togepi: Toge-toge-priii!','Lily’s Togepi waddles in happy little circles.']});
+  const mom=M.npcs.find(n=>n.sheet==='mom');if(mom){const s0=mom.say;mom.say=()=>{const L=s0();if(state.party.length&&!(state.labQuiz&&!state.party.length)&&L&&L.length===1)return[L[0],'Chansey and Furret help me keep the house in order while you’re away. Lily misses you, you know.'];return L}}}}
 buildPixelCache().then(npcInit,npcInit).then(titleScreen,titleScreen);
 </script>
 
