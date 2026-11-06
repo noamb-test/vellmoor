@@ -210,6 +210,12 @@
 .rb .menu .tgBox[disabled]{background:linear-gradient(#e4e6e8,#c4c8cc);border-color:#8a9096;color:#7a8088;cursor:default;box-shadow:none}
 .rb .menu .tgBox[disabled] .ptMon{filter:grayscale(1) opacity(.6)}
 .rb .menu .tgBox.empty{visibility:hidden}
+.rb .menu .tgRow.tight{gap:5px}
+.rb .menu .tgRow.tight .tgBox{grid-template-columns:1fr;justify-items:center;text-align:center;padding:5px 4px 6px;row-gap:2px}
+.rb .menu .tgRow.tight .tgBox .ptMon{grid-row:auto}
+.rb .menu .tgRow.tight .tgBox .tgN{display:none!important}
+.rb .menu .tgRow.tight .tgBox .tgHp{grid-column:1;width:100%}
+.rb .menu .tgRow.tight .tgBox em{grid-column:1;font-size:10px;line-height:1.1}
 .rb .meArt.tgt{filter:drop-shadow(0 0 6px #4a8ef0) drop-shadow(0 0 2px #4a8ef0)}
 </style><style>
 /* party screen (Platinum) */
@@ -9367,7 +9373,7 @@ function tgtMenu(m,P){const id=B.pend,mv=MV[id],spread=isSpread(id),adj=ADJ_ALL.
   const box=(mon,side,slot)=>{if(!mon)return'<div class="tgBox empty"></div>';const self=side==='p'&&slot===B.ps,alive=mon.hp>0;
     const on=alive&&!self&&(side==='f'||(spread?adj:allyOK)),e=mv.k==='atk'&&on?eff(mv.t,SP[mon.sp].types):1,hp=Math.max(0,mon.hp)/stats(mon).maxhp;
     return`<button class="tgBox ${side==='f'?'foe':'ally'} ${spread&&on?'lit':''} ${self?'self':''}" ${on?'':'disabled'} data-t="${side==='f'?slot:100+slot}" data-side="${side}" data-slot="${slot}">${ptMonIcon(mon)}<span class="tgN">${nm(mon)}${gsym(mon)}</span><span class="tgL">Lv${mon.lvl}</span><span class="tgHp"><i style="width:${Math.round(hp*100)}%;background:${hp>.5?'#38c868':hp>.2?'#f0b828':'#e84838'}"></i></span>${on&&mv.k==='atk'?(e===0?'<em class="res">No effect</em>':e>1?'<em class="vul">Super effective</em>':e<1?'<em class="res">Not very effective</em>':''):''}</button>`};
-  m.innerHTML=`<p class="hint">${spread?`${mv.n} hits every highlighted Pokémon.`:`Use ${mv.n} on which Pokémon?`}</p><div class="tgGrid"><div class="tgRow foes">${B.actF.map((fi,s)=>box(B.foes[fi],'f',s)).join('')}</div><div class="tgRow mine">${B.actP.map((pi,s)=>box(state.party[pi],'p',s)).join('')}</div></div><button class="btn full" id="tgtBack">Cancel</button>`;
+  m.innerHTML=`<p class="hint">${spread?`${mv.n} hits every highlighted Pokémon.`:`Use ${mv.n} on which Pokémon?`}</p><div class="tgGrid"><div class="tgRow foes ${B.actF.length>3?'tight':''}">${B.actF.map((fi,s)=>box(B.foes[fi],'f',s)).join('')}</div>${B.actP.length>1?`<div class="tgRow mine">${B.actP.map((pi,s)=>box(state.party[pi],'p',s)).join('')}</div>`:''}</div><button class="btn full" id="tgtBack">Cancel</button>`;
   const art=b=>document.querySelector(b.dataset.side==='f'?`.foeArt[data-fs="${b.dataset.slot}"]`:`.meArt[data-ps="${b.dataset.slot}"]`);
   const hl=b=>{document.querySelectorAll('.mslotArt.tgt').forEach(x=>x.classList.remove('tgt'));m.querySelectorAll('.tgBox.hov').forEach(x=>x.classList.remove('hov'));if(!b)return;
     for(const g of spread?m.querySelectorAll('.tgBox.lit'):[b]){g.classList.add('hov');const a=art(g);if(a)a.classList.add('tgt')}};
