@@ -10358,9 +10358,10 @@ function owDraw(K,now){const c=K.ctx,M=K.map,n=K.n||1;c.setTransform(n,0,0,n,0,0
   const cam={x:ax(M.w*16,256,K.px+8-128),y:ax(M.h*16,192,K.py+8-96)};
   if(owOk(K.lower))c.drawImage(K.lower,-cam.x,-cam.y);if(typeof owUnder==='function')owUnder(K,cam,now);
   const ents=[];
+  if(K.dismount){const D=K.dismount;if(now-D.t0>420||OWK!==K)K.dismount=null;else ents.push({y:-1e9,draw:()=>owSurfMount(K,c,D.x*16-cam.x,D.y*16-cam.y,D.dir,now,false)})}
   const pf=K.moving&&K.moving.t/K.moving.ms<.6?(K.step%2?1:3):0;
   ents.push({y:K.py,draw:()=>{const img=K.player;if(!owOk(img))return;const run=owRunning(K)&&K.moving;const base=run?16:0;const row=base+OW_ROW[K.dir]*4+pf;
-    if(K.hidePlayer)return;if(K.surf&&typeof owSurfDraw==='function')return owSurfDraw(K,c,cam,performance.now(),img);c.drawImage(img,0,row*32,32,32,Math.round(K.px-cam.x-8),Math.round(K.py-cam.y-16),32,32)}});
+    if(K.hidePlayer)return;if(K.surf&&typeof owSurfDraw==='function')return owSurfDraw(K,c,cam,performance.now(),img);const jm=K.moving&&K.moving.jump&&K.dismount,jy=jm?Math.round(Math.sin(Math.min(1,K.moving.t/K.moving.ms)*Math.PI)*12):0;c.drawImage(img,0,(jm?OW_ROW[K.dir]*4+1:row)*32,32,32,Math.round(K.px-cam.x-8),Math.round(K.py-cam.y-16-jy),32,32)}});
   for(const nn of K.npcs){const moving=nn.tx!==undefined&&nn.t<160;ents.push({y:nn.py,draw:()=>typeof owNpcDraw==='function'?owNpcDraw(K,nn,moving,cam,now):owSheet(K,nn.img,nn.dir,moving?1:0,nn.px,nn.py,cam)})}
   if(K.fol){const f=K.fol;ents.push({y:f.py-.5,draw:()=>{
     const bob=Math.floor(now/260)%2;
@@ -13137,19 +13138,28 @@ const FISH_POOL=[null,
   [['n130',14],['n119',16],['n211',14],['n222',12],['n224',12],['n171',10],['n117',10],['n147',4],['n131',3],['n349',5]]];
 /* ---- surfing ---- */
 function surfStart(K,x,y,m){K.held=[];owSay([`${nm(m)} used Surf!`],()=>{const o=state.ow;K.surf=true;o.surf=true;K._fol=K.fol;K.fol=null;
-  K.surfImg=owLoad(OWDIR+'surf_mount.png');K.surfSp=m.sp;o.surfSp=m.sp;K.moving={fx:o.x,fy:o.y,tx:x,ty:y,t:0,ms:380,jump:true,fol:null};save()})}
-function surfEnd(K,x,y,d){const o=state.ow;K.moving={fx:o.x,fy:o.y,tx:x,ty:y,t:0,ms:380,jump:true,fol:null};K.surf=false;o.surf=false;delete o.surfSp;
+  K.surfImg=owLoad(OWDIR+'surf_mount.png?v=3');K.surfSp=m.sp;o.surfSp=m.sp;K.moving={fx:o.x,fy:o.y,tx:x,ty:y,t:0,ms:380,jump:true,fol:null};save()})}
+function surfEnd(K,x,y,d){const o=state.ow;K.dismount={x:o.x,y:o.y,dir:d,t0:performance.now()};K.moving={fx:o.x,fy:o.y,tx:x,ty:y,t:0,ms:380,jump:true,fol:null};K.surf=false;o.surf=false;delete o.surfSp;
   setTimeout(()=>{if(OWK!==K)return;if(K._fol){K.fol=K._fol;K.fol.x=x;K.fol.y=y;K.fol.px=x*16;K.fol.py=y*16;K.fol.dir=d}K._fol=null;save()},400)}
 {const _ob=owBlocked;window._owBlockedLand=_ob}
 {const _t=owTry;owTry=function(K,d){if(!K.surf)return _t(K,d);const o=state.ow,[dx,dy]=OW_DIRS[d],x=o.x+dx,y=o.y+dy;K.dir=d;o.dir=d;
   if(isWater(K,x,y)&&!owNpcAt(K,x,y)){K.step++;K.moving={fx:o.x,fy:o.y,tx:x,ty:y,t:0,ms:owRunning(K)?140:210,fol:null};return}
   if(x>=0&&y>=0&&x<K.map.w&&y<K.map.h&&!_owBlockedLand(K,x,y)&&!owNpcAt(K,x,y))return surfEnd(K,x,y,d);K.bump=performance.now()}}
 {const _a=owArrive;owArrive=function(K){if(K.surf&&isWater(K,state.ow.x,state.ow.y)){if(alive().length&&Math.random()<.07){K.busy=true;setTimeout(()=>{if(OWK===K){owStop();sffBattle(SURF_POOL)}},250);return true}return false}return _a(K)}}
-function owSurfDraw(K,c,cam,now,img){const bob=Math.floor(now/320)%2,x=Math.round(K.px-cam.x),y=Math.round(K.py-cam.y);
-  c.fillStyle='rgba(255,255,255,.55)';const w=Math.floor(now/200)%3;c.fillRect(x-2-w,y+13,4,1);c.fillRect(x+14+w,y+13,4,1);c.fillRect(x+3,y+15,10,1);
-  const S=K.surfImg;if(owOk(S)){const s=S.naturalWidth,fr=OW_ROW[K.dir]*2+(Math.floor(now/260)%2);const sc=s<=32?1.5:1,ds=Math.round(s*sc);c.save();c.imageSmoothingEnabled=false;c.drawImage(S,0,fr*s,s,s,Math.round(x+8-ds/2),Math.round(y+16-ds+6+bob),ds,ds);c.restore()}
-  else{c.fillStyle='#3a78d8';c.beginPath();c.ellipse(x+8,y+10+bob,10,6,0,0,7);c.fill()}
-  if(owOk(img)){const row=OW_ROW[K.dir]*4,up=K.dir==='up';if(!up&&owOk(S)){const s=S.naturalWidth,fr=OW_ROW[K.dir]*2+(Math.floor(now/260)%2),sc=s<=32?1.5:1,ds=Math.round(s*sc);c.drawImage(img,0,row*32,32,20,x-8,y-20+bob,32,20);c.save();c.imageSmoothingEnabled=false;c.beginPath();c.rect(x-16,y+2+bob,48,30);c.clip();c.drawImage(S,0,fr*s,s,s,Math.round(x+8-ds/2),Math.round(y+16-ds+6+bob),ds,ds);c.restore()}else c.drawImage(img,0,row*32,32,20,x-8,y-20+bob,32,20)}}
+function owSurfMount(K,c,px,py,dir,now,moving){const S=K.surfImg,ph=Math.floor(now/420)%2,x=Math.round(px),y=Math.round(py);
+  if(moving){const w=(K.step%2),back={up:[0,1],down:[0,-1],left:[1,0],right:[-1,0]}[dir];c.fillStyle='rgba(255,255,255,.7)';
+    if(back[1]){const by=y+(back[1]>0?20:4);c.fillRect(x+1-w,by,3,1);c.fillRect(x+12+w,by,3,1);c.fillRect(x+4,by+(back[1]>0?2:-2),8,1)}
+    else{const bx=x+(back[0]>0?22:-6);c.fillRect(bx,y+15-w,1,3);c.fillRect(bx+back[0]*2,y+11+w,1,3)}}
+  if(owOk(S)){const s=S.naturalWidth,fr=OW_ROW[dir]*4+Math.floor(now/(moving?110:200))%4;c.save();c.imageSmoothingEnabled=false;c.drawImage(S,0,fr*s,s,s,x+8-s/2,y-14+ph,s,s);c.restore()}
+  else{c.fillStyle='#3a78d8';c.beginPath();c.ellipse(x+8,y+10+ph,10,6,0,0,7);c.fill()}}
+const SURF_SEAT={up:[0,-22],down:[0,-22],left:[1,-21],right:[-1,-21]};
+function owSurfDraw(K,c,cam,now,img){const m=K.moving,hop=m&&m.jump?Math.min(1,m.t/m.ms):-1,ph=Math.floor(now/420)%2;
+  // hopping on: the mount waits on the water tile while the player jumps onto it
+  const mx=(hop>=0?m.tx*16:K.px)-cam.x,my=(hop>=0?m.ty*16:K.py)-cam.y;
+  owSurfMount(K,c,mx,my,K.dir,now,!!m&&hop<0);
+  if(!owOk(img))return;const row=OW_ROW[K.dir]*4,rx=Math.round(K.px-cam.x),ry=Math.round(K.py-cam.y);
+  if(hop>=0&&hop<.8){c.drawImage(img,0,(row+1)*32,32,32,rx-8,ry-16-Math.round(Math.sin(hop/.8*Math.PI)*12),32,32);return}
+  const[sx,sy]=SURF_SEAT[K.dir];c.drawImage(img,0,row*32,32,22,rx-8+sx,ry+sy+ph,32,22)}
 /* ---- fishing ---- */
 function fishStart(K){K.held=[];K.busy=true;const now=performance.now();K.fish={t0:now,bite:now+1400+Math.random()*2600,phase:'wait'}}
 function fishEnd(K,lines,then){K.fish=null;K.busy=false;owSay(lines,then)}
@@ -13190,7 +13200,7 @@ function flyDraw(K,c,cam,now){const F=K.fly;if(!F)return;const t=(now-F.t0)/1000
   if(!F.out&&t<0.25){c.fillStyle=`rgba(255,255,255,${1-t/0.25})`;c.fillRect(0,0,256,192)}
   if(!F.out&&t>0.8){K.fly=null;K.busy=false;K.hidePlayer=false}}
 {const _st=owStart;owStart=function(M){const r=_st.apply(this,arguments);const K=OWK,o=state&&state.ow;if(!K||!o)return r;
-  if(o.surf){if(isWater(K,o.x,o.y)){K.surf=true;K._fol=K.fol;K.fol=null;const sm=o.surfSp?{sp:o.surfSp}:surfMon();K.surfImg=owLoad(OWDIR+'surf_mount.png')}else o.surf=false}
+  if(o.surf){if(isWater(K,o.x,o.y)){K.surf=true;K._fol=K.fol;K.fol=null;const sm=o.surfSp?{sp:o.surfSp}:surfMon();K.surfImg=owLoad(OWDIR+'surf_mount.png?v=3')}else o.surf=false}
   if(o.land){K.fly={t0:performance.now(),img:owLoad(OWDIR+'pokemon/normal/'+o.land+'.png'),out:false};K.busy=true;K.hidePlayer=true;delete o.land}
   return r}}
 {const _o=owOver;owOver=function(K,now){const r=_o.apply(this,arguments);try{const c=K.ctx,cam=K.cam||{x:0,y:0};fishTick(K,now);fishDraw(K,c,cam,now);flyDraw(K,c,cam,now)}catch(e){console.warn(e)}return r}}
