@@ -2,7 +2,7 @@
 
 Writes <out>/vm_layout.json, a map in the map editor's format (Goldenrod city style):
   S plaza ground, R avenues, D boardwalk, F flowers, T trees, W sea.
-Buildings, rocks, lamps, signs and mailboxes are the editor's kits and props.
+Buildings, rocks, signs and mailboxes are the editor's kits and props.
 Bake it with tools/voltmark_bake.js, which runs the editor's own bakeTown()/townData().
 
     python3 tools/voltmark_city.py <out_dir>
@@ -10,7 +10,7 @@ Bake it with tools/voltmark_bake.js, which runs the editor's own bakeTown()/town
 import json, os, sys
 
 OUT = sys.argv[1] if len(sys.argv) > 1 else '.'
-W, H = 56, 48
+W, H = 56, 52
 g = [['S'] * W for _ in range(H)]
 
 
@@ -29,16 +29,15 @@ fill(4, 24, 5, 25, 'F'); fill(9, 24, 10, 25, 'F'); fill(3, 27, 11, 27, 'F')
 
 # ---- edges: trees along the top, bottom and east side
 fill(16, 0, W - 1, 3, 'T')
-fill(16, 46, 17, H - 1, 'T'); fill(W - 2, 46, W - 1, H - 1, 'T')
-fill(W - 2, 4, W - 1, 13, 'T'); fill(W - 2, 22, W - 1, 45, 'T')
-fill(16, 4, 17, 13, 'T'); fill(16, 22, 17, 45, 'T')
+fill(16, 50, 17, H - 1, 'T'); fill(W - 2, 50, W - 1, H - 1, 'T')
+fill(W - 2, 4, W - 1, 13, 'T'); fill(W - 2, 22, W - 1, 49, 'T')
+fill(16, 4, 17, 13, 'T'); fill(16, 22, 17, 49, 'T')
 
 # ---- avenues: Broadway east-west (both exits), Fifth Avenue north-south, two side streets
 fill(16, 16, W - 1, 19, 'R')
 fill(36, 4, 39, H - 1, 'R')
 fill(18, 30, W - 3, 31, 'R')
-fill(18, 38, W - 3, 39, 'R')
-fill(18, 46, W - 3, H - 1, 'R')
+fill(18, 50, W - 3, H - 1, 'R')
 # small parks
 fill(18, 4, 23, 7, 'F'); fill(26, 4, 27, 5, 'T'); fill(18, 21, 19, 24, 'F')
 
@@ -63,32 +62,26 @@ bld('game_corner', 44, 15, 'gamecorner')
 bld('gym_goldenrod', 50, 15, 'gym')
 # between Broadway and the first side street
 bld('center', 22, 29, 'center')
-homes([27, 31], 29, 'a')
+bld('house_goldenrod', 28, 29, 'house1')
+bld('house_goldenrod', 32, 29, 'a0', NONE)
 bld('dept_store', 42, 29, 'dept')
 bld('mart', 49, 29, 'mart')
-homes([19, 23, 27, 31], 36, 'b', False)
-homes([42, 46, 50], 36, 'c', False)
 # between the two side streets
-bld('house_goldenrod', 20, 44, 'house1')
-homes([24, 28, 32], 44, 'd', False)
-homes([42, 46, 50], 44, 'e', False)
+# the skyline south of the side street: tall towers, Jubilife style
+bld('radio_lav', 22, 49, 'sky1', locked('VOLTMARK BROADCASTING\nOffices upstairs. The lobby is closed after hours.'))
+bld('dept_celadon', 31, 49, 'sky2', locked('VOLTMARK TRADE CENTER\nOffices only. A guard waves you away politely.'))
+bld('dept_celadon', 44, 49, 'sky3', locked('SPARK TOWER\nA sign says: “Residents only.”'))
+bld('fanclub', 51, 49, 'sky4', locked('VOLTMARK APARTMENTS\nThe door buzzes, but nobody answers.'))
+# shops and offices in front of the towers
+bld('restaurant', 46, 38, 'shops', locked('VOLTMARK EATS\nThe kitchen is closed. A sign promises “Moomoo Milkshakes, coming soon!”'))
+bld('lab_elm', 28, 39, 'office', locked('VOLTMARK POWER CO.\nThe receptionist says the CEO is “in a very important meeting.”'))
 
 # ---- props
 PROPS = []
 def p(kind, x, y): PROPS.append({'prop': kind, 'x': x, 'y': y})
 for (x, y) in [(1, 4), (4, 2), (9, 1), (13, 5), (0, 10), (14, 11), (1, 23), (14, 24), (0, 32), (5, 33), (11, 34), (14, 38), (3, 40), (9, 43), (13, 45), (6, 46)]:
     p('rock', x, y)
-for x in (19, 26, 34, 41, 47, 53):
-    p('lamp', x, 15)
-for x in (20, 27, 34, 40, 47):
-    p('lamp', x, 20)
-for y in (8, 12, 23, 27, 34, 42):
-    p('lamp', 35, y)
-for y in (6, 12, 22):
-    p('lamp', 40, y)
-for (x, y) in [(3, 9), (11, 9), (3, 21), (11, 21), (3, 28), (11, 28)]:
-    p('lamp', x, y)
-p('mailbox', 26, 15); p('mailbox', 46, 32)
+p('mailbox', 26, 15); p('mailbox', 40, 33)
 
 SIGNS = [
     {'x': 22, 'y': 20, 'model': 'sign', 'lines': ['VOLTMARK', 'The city that never powers down. Electric-type Gym on Broadway.']},
@@ -113,8 +106,8 @@ NPCS = [
     {'kind': 'person', 'sheet': 'school_kid_f', 'x': 11, 'y': 18, 'dir': 'left', 'wander': False, 'say': ['Voltmark Tower is the tallest building in Vellmoor. I want to go to the top someday!']},
     {'kind': 'person', 'sheet': 'fisherman', 'x': 14, 'y': 18, 'dir': 'up', 'wander': False, 'say': ['You’d be amazed what bites in the bay. Mostly old boots, though.']},
     {'kind': 'person', 'sheet': 'policeman', 'x': 37, 'y': 21, 'dir': 'down', 'wander': False, 'say': ['Look both ways! Traffic here doesn’t slow down for anybody.']},
-    {'kind': 'person', 'sheet': 'lady', 'x': 45, 'y': 37, 'dir': 'down', 'wander': True, 'say': ['Every house on this street looks the same. I’ve walked into the wrong one twice!']},
-    {'kind': 'person', 'sheet': 'youngster', 'x': 25, 'y': 43, 'dir': 'up', 'wander': True, 'say': ['I’m saving coins for a prize at the Game Corner!']},
+    {'kind': 'person', 'sheet': 'lady', 'x': 45, 'y': 31, 'dir': 'down', 'wander': True, 'say': ['These towers are so tall I get dizzy looking up!']},
+    {'kind': 'person', 'sheet': 'youngster', 'x': 25, 'y': 50, 'dir': 'up', 'wander': True, 'say': ['I’m saving coins for a prize at the Game Corner!']},
 ]
 
 layout = {'v': 1, 'area': 12, 'name': 'Voltmark', 'kind': 'town', 'w': W, 'h': H, 'style': 'a5', 'treeArea': 5, 'tint': None, 'water': None,
