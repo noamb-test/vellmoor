@@ -11003,7 +11003,7 @@ owDraw=function(K,now){
   OW_MAPS.hv_home2.warps={'3,4':['hv_home',3,3,'down']};
 })();
 /* a saved spot that is now inside a wall (maps were redrawn) moves you to the map's entrance */
-{const _owS0=owStart;owStart=function(M){const o=state.ow;if(o&&!M.interior&&(o.x<0||o.y<0||o.x>=M.w||o.y>=M.h||(M.coll[o.y]||'')[o.x]==='1')){const s=M.start||Object.values(M.arrive||{})[0];if(s){o.x=s[0];o.y=s[1];o.dir=s[2]||'down'}}return _owS0(M)}}
+{const _owS0=owStart;owStart=function(M){const o=state.ow;if(o&&!M.interior&&!owSurfOk(M,o)&&(o.x<0||o.y<0||o.x>=M.w||o.y>=M.h||(M.coll[o.y]||'')[o.x]==='1')){const s=M.start||Object.values(M.arrive||{})[0];if(s){o.x=s[0];o.y=s[1];o.dir=s[2]||'down'}}return _owS0(M)}}
 /* ============ POKÉ BALL ANIMATIONS: SEND OUT, RECALL, CATCH ============
    Ball sprites from Pokémon Platinum (sprites/battle_ui/balls/<ball>.png: 8 spin frames + a flat frame,
    16×16 each, then the open ball, 32×32). Sending a Pokémon out throws its ball onto the field and the
@@ -11675,8 +11675,8 @@ vmtLoadAll();
   const from=state.ow&&state.ow.map,ret=M&&M.vmTest&&M.vmTest.kind==='town'&&M.vmTest.map.returns&&M.vmTest.map.returns[from];
   if(ret){x=ret[0];y=ret[1];dir='down'}
   else if(M&&M.vmMats&&M.vmMats.length&&from&&from!==map&&OW_MAPS[from]&&!OW_MAPS[from].title&&!M.vmMats.some(m=>m[0]===x&&m[1]===y)){const m=M.vmMats[0];x=m[0];y=m[1];dir='up'}
-  else if(M&&M.vmTest&&M.vmTest.kind==='town'&&(!M.coll[y]||M.coll[y][x]!=='0')){const s=M.start||[x,y,dir];x=s[0];y=s[1];dir=s[2]||'down'}
-  else if(M&&M.vmTest&&(!M.coll[y]||M.coll[y][x]!=='0')){const m=(M.vmMats||[])[0]||Object.keys(M.exits||{}).map(k=>k.split(',').map(Number))[0];if(m){x=m[0];y=m[1];dir='up'}}
+  else if(M&&M.vmTest&&M.vmTest.kind==='town'&&!owSurfOk(M,{x,y,surf:state.ow&&state.ow.surf})&&(!M.coll[y]||M.coll[y][x]!=='0')){const s=M.start||[x,y,dir];x=s[0];y=s[1];dir=s[2]||'down'}
+  else if(M&&M.vmTest&&!owSurfOk(M,{x,y,surf:state.ow&&state.ow.surf})&&(!M.coll[y]||M.coll[y][x]!=='0')){const m=(M.vmMats||[])[0]||Object.keys(M.exits||{}).map(k=>k.split(',').map(Number))[0];if(m){x=m[0];y=m[1];dir='up'}}
   return _warp.call(this,map,x,y,dir)}}
 /* MENU > OPTIONS lists test maps and can remove them */
 {const _opt=hgOptions;hgOptions=function(){_opt();if(!VMT_LIST.length||!PTU)return;const w=PTU.el.querySelector('.hgOpt');if(!w)return;
@@ -11911,9 +11911,11 @@ function centerApply(){
     list.forEach(([sheet,x,y,dir,wander,L],i)=>{if(CENTER_COLL[y][x]!=='0'||M.npcs.some(n=>n.x===x&&n.y===y))return;
       M.npcs.push({id:`${k}_local${i}`,sheet,x,y,dir,wander:!!wander,say:()=>L.slice()})})}}
 centerApply();
+/* a surfer on open water is where they belong */
+function owSurfOk(M,o){return!!(o&&o.surf&&M&&typeof OW_WATER!=='undefined'&&OW_WATER[M.key]&&OW_WATER[M.key][o.y]&&OW_WATER[M.key][o.y][o.x]==='1')}
 /* a save made before a map was redrawn can leave you standing inside a wall, a building or water: step to the nearest open tile */
 {const _st3=owStart;owStart=function(M){if(M&&M.vmTest&&state&&state.ow&&state.ow.map===M.key&&M.coll){const o=state.ow,open=(x,y)=>M.coll[y]&&M.coll[y][x]==='0'&&!(M.npcs||[]).some(n=>n.x===x&&n.y===y);
-    if(!open(o.x,o.y)){const seen=new Set([o.x+','+o.y]),q=[[o.x,o.y]];let hit=null;while(q.length&&!hit){const[x,y]=q.shift();for(const[dx,dy]of[[0,1],[1,0],[-1,0],[0,-1]]){const a=x+dx,b=y+dy,k=a+','+b;if(seen.has(k)||a<0||b<0||a>=M.w||b>=M.h)continue;seen.add(k);if(open(a,b)){hit=[a,b];break}q.push([a,b])}}
+    if(!open(o.x,o.y)&&!owSurfOk(M,o)){const seen=new Set([o.x+','+o.y]),q=[[o.x,o.y]];let hit=null;while(q.length&&!hit){const[x,y]=q.shift();for(const[dx,dy]of[[0,1],[1,0],[-1,0],[0,-1]]){const a=x+dx,b=y+dy,k=a+','+b;if(seen.has(k)||a<0||b<0||a>=M.w||b>=M.h)continue;seen.add(k);if(open(a,b)){hit=[a,b];break}q.push([a,b])}}
       if(!hit&&M.start)hit=[M.start[0],M.start[1]];if(hit){o.x=hit[0];o.y=hit[1]}}}
   return _st3.apply(this,arguments)}}
 /* ============ COPPERFORD GYM (Rock): the Old Mine ============
@@ -13135,7 +13137,7 @@ const FISH_POOL=[null,
   [['n130',14],['n119',16],['n211',14],['n222',12],['n224',12],['n171',10],['n117',10],['n147',4],['n131',3],['n349',5]]];
 /* ---- surfing ---- */
 function surfStart(K,x,y,m){K.held=[];owSay([`${nm(m)} used Surf!`],()=>{const o=state.ow;K.surf=true;o.surf=true;K._fol=K.fol;K.fol=null;
-  K.surfImg=owLoad(OWDIR+'pokemon/normal/'+dexOf(m)+'.png');K.surfSp=m.sp;o.surfSp=m.sp;K.moving={fx:o.x,fy:o.y,tx:x,ty:y,t:0,ms:380,jump:true,fol:null};save()})}
+  K.surfImg=owLoad(OWDIR+'surf_mount.png');K.surfSp=m.sp;o.surfSp=m.sp;K.moving={fx:o.x,fy:o.y,tx:x,ty:y,t:0,ms:380,jump:true,fol:null};save()})}
 function surfEnd(K,x,y,d){const o=state.ow;K.moving={fx:o.x,fy:o.y,tx:x,ty:y,t:0,ms:380,jump:true,fol:null};K.surf=false;o.surf=false;delete o.surfSp;
   setTimeout(()=>{if(OWK!==K)return;if(K._fol){K.fol=K._fol;K.fol.x=x;K.fol.y=y;K.fol.px=x*16;K.fol.py=y*16;K.fol.dir=d}K._fol=null;save()},400)}
 {const _ob=owBlocked;window._owBlockedLand=_ob}
@@ -13188,7 +13190,7 @@ function flyDraw(K,c,cam,now){const F=K.fly;if(!F)return;const t=(now-F.t0)/1000
   if(!F.out&&t<0.25){c.fillStyle=`rgba(255,255,255,${1-t/0.25})`;c.fillRect(0,0,256,192)}
   if(!F.out&&t>0.8){K.fly=null;K.busy=false;K.hidePlayer=false}}
 {const _st=owStart;owStart=function(M){const r=_st.apply(this,arguments);const K=OWK,o=state&&state.ow;if(!K||!o)return r;
-  if(o.surf){if(isWater(K,o.x,o.y)){K.surf=true;K._fol=K.fol;K.fol=null;const sm=o.surfSp?{sp:o.surfSp}:surfMon();K.surfImg=sm?owLoad(OWDIR+'pokemon/normal/'+dexOf(sm)+'.png'):null}else o.surf=false}
+  if(o.surf){if(isWater(K,o.x,o.y)){K.surf=true;K._fol=K.fol;K.fol=null;const sm=o.surfSp?{sp:o.surfSp}:surfMon();K.surfImg=owLoad(OWDIR+'surf_mount.png')}else o.surf=false}
   if(o.land){K.fly={t0:performance.now(),img:owLoad(OWDIR+'pokemon/normal/'+o.land+'.png'),out:false};K.busy=true;K.hidePlayer=true;delete o.land}
   return r}}
 {const _o=owOver;owOver=function(K,now){const r=_o.apply(this,arguments);try{const c=K.ctx,cam=K.cam||{x:0,y:0};fishTick(K,now);fishDraw(K,c,cam,now);flyDraw(K,c,cam,now)}catch(e){console.warn(e)}return r}}
